@@ -21,6 +21,9 @@ sealed interface FeedsUiState {
  * 继承AndroidViewModel以获取Application context用于API配置
  */
 class FeedsViewModel(application: Application) : AndroidViewModel(application) {
+
+    // 用于存储每个分类列表的滚动位置 <Category, Pair<Index, Offset>>
+    val scrollPositions = mutableMapOf<String, Pair<Int, Int>>()
     
     private val feedRepository = FeedRepository(application.applicationContext)
 

@@ -60,21 +60,12 @@ fun AppNavigation(sharedViewModel: SharedViewModel) {
         composable("feeds") {
             val feedsViewModel = androidx.lifecycle.viewmodel.compose.viewModel<FeedsViewModel>()
             FeedsScreen(
-                feedsUiState = feedsViewModel.feedsUiState,
-                selectedCategory = feedsViewModel.selectedCategory,
-                isRefreshing = feedsViewModel.isRefreshing,
-                isBackgroundRefreshing = feedsViewModel.isBackgroundRefreshing,
+                feedsViewModel = feedsViewModel,
                 onFeedClick = { feed ->
                     // 标记文章为已读
                     feedsViewModel.markFeedAsRead(feed)
                     sharedViewModel.selectFeed(feed)
                     navController.navigate("feedDetail")
-                },
-                onCategorySelected = { category ->
-                    feedsViewModel.selectCategory(category)
-                },
-                onRefresh = {
-                    feedsViewModel.refreshFeeds()
                 },
                 onSettingsClick = {
                     navController.navigate("settings")
@@ -88,7 +79,7 @@ fun AppNavigation(sharedViewModel: SharedViewModel) {
                         val correctedIndex = podcastFeeds.indexOfFirst {
                             it.labels.podcastUrl == targetFeed.labels.podcastUrl
                         }.coerceAtLeast(0)
-                        
+
                         // 播放播客列表
                         playerViewModel.playPodcastPlaylist(podcastFeeds, correctedIndex)
                     }

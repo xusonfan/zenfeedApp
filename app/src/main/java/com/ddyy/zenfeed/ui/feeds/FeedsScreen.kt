@@ -238,29 +238,67 @@ fun CategoryTabs(
 @Composable
 @Stable
 fun FeedsScreen(
-    feedsUiState: FeedsUiState,
-    selectedCategory: String,
-    isRefreshing: Boolean,
-    isBackgroundRefreshing: Boolean = false,
+    feedsViewModel: FeedsViewModel,
     onFeedClick: (Feed) -> Unit,
-    onCategorySelected: (String) -> Unit,
-    onRefresh: () -> Unit,
     onSettingsClick: () -> Unit = {},
     onPlayPodcastList: ((List<Feed>, Int) -> Unit)? = null,
     playerViewModel: PlayerViewModel? = null,
     modifier: Modifier = Modifier
 ) {
-    val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
-    val coroutineScope = rememberCoroutineScope()
+    val feedsUiState = feedsViewModel.feedsUiState
+    val selectedCategory = feedsViewModel.selectedCategory
+    val isRefreshing = feedsViewModel.isRefreshing
+    val isBackgroundRefreshing = feedsViewModel.isBackgroundRefreshing
+    val onRefresh = { feedsViewModel.refreshFeeds() }
+    val onCategorySelected = { category: String -> feedsViewModel.selectCategory(category) }
 
-    // 为每个类别维护一个列表状态
+    // 为每个类别维护一个列表状态，并与ViewModel关联以持久化
     val listStates = remember { mutableMapOf<String, LazyStaggeredGridState>() }
-    if (feedsUiState is FeedsUiState.Success) {
-        (listOf("") + feedsUiState.categories).forEach { category ->
-            listStates.getOrPut(category) { LazyStaggeredGridState() }
+    DisposableEffect(Unit) {
+        onDispose {
+            listStates.forEach { (category, state) ->
+                feedsViewModel.scrollPositions[category] =
+                    state.firstVisibleItemIndex to state.firstVisibleItemScrollOffset
+            }
         }
     }
-    val currentListState = listStates[selectedCategory] ?: rememberLazyStaggeredGridState()
+
+    FeedsScreenContent(
+        feedsUiState = feedsUiState,
+        selectedCategory = selectedCategory,
+        isRefreshing = isRefreshing,
+        isBackgroundRefreshing = isBackgroundRefreshing,
+        onFeedClick = onFeedClick,
+        onCategorySelected = onCategorySelected,
+        onRefresh = onRefresh,
+        onSettingsClick = onSettingsClick,
+        onPlayPodcastList = onPlayPodcastList,
+        playerViewModel = playerViewModel,
+        listStates = listStates,
+        scrollPositions = feedsViewModel.scrollPositions,
+        modifier = modifier
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
+@Composable
+fun FeedsScreenContent(
+    feedsUiState: FeedsUiState,
+    selectedCategory: String,
+    isRefreshing: Boolean,
+    isBackgroundRefreshing: Boolean,
+    onFeedClick: (Feed) -> Unit,
+    onCategorySelected: (String) -> Unit,
+    onRefresh: () -> Unit,
+    onSettingsClick: () -> Unit,
+    onPlayPodcastList: ((List<Feed>, Int) -> Unit)?,
+    playerViewModel: PlayerViewModel?,
+    listStates: MutableMap<String, LazyStaggeredGridState>,
+    scrollPositions: Map<String, Pair<Int, Int>>,
+    modifier: Modifier = Modifier
+) {
+    val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
+    val coroutineScope = rememberCoroutineScope()
 
     // Pager 状态
     val pagerCategories = (feedsUiState as? FeedsUiState.Success)?.let { listOf("") + it.categories } ?: listOf("")
@@ -279,7 +317,7 @@ fun FeedsScreen(
         if (!pagerState.isScrollInProgress && pagerCategories.isNotEmpty()) {
             val newCategory = pagerCategories[pagerState.currentPage]
             if (newCategory != selectedCategory) {
-                // onCategorySelected(newCategory) // ViewModel不再需要此事件
+                onCategorySelected(newCategory)
             }
         }
     }
@@ -395,7 +433,10 @@ fun FeedsScreen(
                         val category = allCategories[page]
                         // 直接从预先计算好的 Map 中获取数据，这是一个非常快速的操作
                         val feedsForCategory = categorizedFeeds[category] ?: emptyList()
-                        val listState = listStates[category] ?: rememberLazyStaggeredGridState()
+                        val listState = listStates.getOrPut(category) {
+                            val (initialIndex, initialOffset) = scrollPositions[category] ?: (0 to 0)
+                            LazyStaggeredGridState(initialIndex, initialOffset)
+                        }
                         val pullToRefreshState = rememberPullToRefreshState()
 
                         PullToRefreshBox(
@@ -621,7 +662,7 @@ fun FeedItemPreview() {
 @Composable
 fun FeedsScreenSuccessPreview() {
     MaterialTheme {
-        FeedsScreen(
+        FeedsScreenContent(
             feedsUiState = FeedsUiState.Success(
                 feeds = List(8) {
                     Feed(
@@ -646,9 +687,15 @@ fun FeedsScreenSuccessPreview() {
             ),
             selectedCategory = "",
             isRefreshing = false,
+            isBackgroundRefreshing = false,
             onFeedClick = {},
             onCategorySelected = {},
-            onRefresh = {}
+            onRefresh = {},
+            onSettingsClick = {},
+            onPlayPodcastList = null,
+            playerViewModel = null,
+            listStates = remember { mutableMapOf() },
+            scrollPositions = emptyMap()
         )
     }
 }
