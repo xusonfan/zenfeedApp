@@ -11,7 +11,7 @@ import com.ddyy.zenfeed.data.FeedRepository
 import kotlinx.coroutines.launch
 
 sealed interface FeedsUiState {
-    data class Success(val feeds: List<Feed>) : FeedsUiState
+    data class Success(val feeds: List<Feed>, val categories: List<String>) : FeedsUiState
     data object Error : FeedsUiState
     data object Loading : FeedsUiState
 }
@@ -30,6 +30,13 @@ class FeedsViewModel(application: Application) : AndroidViewModel(application) {
     // 下拉刷新状态
     var isRefreshing: Boolean by mutableStateOf(false)
         private set
+    
+    // 原始的完整Feed列表
+    private var allFeeds: List<Feed> = emptyList()
+    
+    // 当前选中的分类，空字符串表示显示全部
+    var selectedCategory: String by mutableStateOf("")
+        private set
 
     init {
         getFeeds()
@@ -42,10 +49,11 @@ class FeedsViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             feedsUiState = FeedsUiState.Loading
             val result = feedRepository.getFeeds()
-            feedsUiState = if (result.isSuccess) {
-                FeedsUiState.Success(result.getOrNull()?.feeds ?: emptyList())
+            if (result.isSuccess) {
+                allFeeds = result.getOrNull()?.feeds ?: emptyList()
+                updateFilteredFeeds()
             } else {
-                FeedsUiState.Error
+                feedsUiState = FeedsUiState.Error
             }
         }
     }
@@ -57,12 +65,43 @@ class FeedsViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             isRefreshing = true
             val result = feedRepository.getFeeds()
-            feedsUiState = if (result.isSuccess) {
-                FeedsUiState.Success(result.getOrNull()?.feeds ?: emptyList())
+            if (result.isSuccess) {
+                allFeeds = result.getOrNull()?.feeds ?: emptyList()
+                updateFilteredFeeds()
             } else {
-                FeedsUiState.Error
+                feedsUiState = FeedsUiState.Error
             }
             isRefreshing = false
         }
+    }
+    
+    /**
+     * 选择分类进行筛选
+     */
+    fun selectCategory(category: String) {
+        selectedCategory = category
+        updateFilteredFeeds()
+    }
+    
+    /**
+     * 更新筛选后的Feed列表
+     */
+    private fun updateFilteredFeeds() {
+        val filteredFeeds = if (selectedCategory.isEmpty()) {
+            allFeeds
+        } else {
+            allFeeds.filter { it.labels.category == selectedCategory }
+        }
+        
+        val categories = allFeeds
+            .map { it.labels.category }
+            .filter { it.isNotBlank() }
+            .distinct()
+            .sorted()
+        
+        feedsUiState = FeedsUiState.Success(
+            feeds = filteredFeeds,
+            categories = categories
+        )
     }
 }

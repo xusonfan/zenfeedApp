@@ -4,6 +4,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.staggeredgrid.LazyVerticalStaggeredGrid
 import androidx.compose.foundation.lazy.staggeredgrid.LazyStaggeredGridState
 import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridCells
@@ -13,6 +15,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Article
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
@@ -126,11 +129,78 @@ fun FeedItem(feed: Feed, onClick: () -> Unit, modifier: Modifier = Modifier) {
     }
 }
 
+@Composable
+fun CategoryFilterChips(
+    categories: List<String>,
+    selectedCategory: String,
+    onCategorySelected: (String) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    LazyRow(
+        modifier = modifier,
+        contentPadding = PaddingValues(horizontal = 16.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        // "全部" 筛选条件
+        item {
+            FilterChip(
+                onClick = { onCategorySelected("") },
+                label = { Text("全部") },
+                selected = selectedCategory.isEmpty(),
+                leadingIcon = if (selectedCategory.isEmpty()) {
+                    {
+                        Icon(
+                            imageVector = Icons.Default.Check,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                } else null,
+                colors = FilterChipDefaults.filterChipColors(
+                    selectedContainerColor = MaterialTheme.colorScheme.primary,
+                    selectedLabelColor = MaterialTheme.colorScheme.onPrimary
+                )
+            )
+        }
+        
+        // 分类筛选条件
+        items(categories) { category ->
+            FilterChip(
+                onClick = { onCategorySelected(category) },
+                label = {
+                    Text(
+                        text = category,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                },
+                selected = selectedCategory == category,
+                leadingIcon = if (selectedCategory == category) {
+                    {
+                        Icon(
+                            imageVector = Icons.Default.Check,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                } else null,
+                colors = FilterChipDefaults.filterChipColors(
+                    selectedContainerColor = MaterialTheme.colorScheme.primary,
+                    selectedLabelColor = MaterialTheme.colorScheme.onPrimary
+                )
+            )
+        }
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FeedsList(
     feeds: List<Feed>,
+    categories: List<String>,
+    selectedCategory: String,
     onFeedClick: (Feed) -> Unit,
+    onCategorySelected: (String) -> Unit,
     isRefreshing: Boolean,
     onRefresh: () -> Unit,
     listState: LazyStaggeredGridState,
@@ -138,30 +208,48 @@ fun FeedsList(
 ) {
     val pullToRefreshState = rememberPullToRefreshState()
     
-    PullToRefreshBox(
-        state = pullToRefreshState,
-        isRefreshing = isRefreshing,
-        onRefresh = onRefresh,
-        modifier = modifier.fillMaxSize()
-    ) {
-        LazyVerticalStaggeredGrid(
-            columns = StaggeredGridCells.Adaptive(minSize = 200.dp), // 调整最小尺寸以减少重排
-            state = listState,
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(12.dp), // 减少边距
-            verticalItemSpacing = 12.dp, // 减少间距
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
+    Column(modifier = modifier.fillMaxSize()) {
+        // 分类筛选区域
+        if (categories.isNotEmpty()) {
+            CategoryFilterChips(
+                categories = categories,
+                selectedCategory = selectedCategory,
+                onCategorySelected = onCategorySelected,
+                modifier = Modifier.padding(vertical = 8.dp)
+            )
+            
+            HorizontalDivider(
+                modifier = Modifier.padding(horizontal = 16.dp),
+                color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)
+            )
+        }
+        
+        // Feed 列表
+        PullToRefreshBox(
+            state = pullToRefreshState,
+            isRefreshing = isRefreshing,
+            onRefresh = onRefresh,
+            modifier = Modifier.fillMaxSize()
         ) {
-            items(
-                items = feeds,
-                key = { feed -> "${feed.labels.title}-${feed.time}" }, // 添加唯一key避免重组
-                contentType = { "FeedItem" } // 添加contentType优化
-            ) { feed ->
-                // 移除动画以减少抖动
-                FeedItem(
-                    feed = feed,
-                    onClick = { onFeedClick(feed) }
-                )
+            LazyVerticalStaggeredGrid(
+                columns = StaggeredGridCells.Adaptive(minSize = 200.dp), // 调整最小尺寸以减少重排
+                state = listState,
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(12.dp), // 减少边距
+                verticalItemSpacing = 12.dp, // 减少间距
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                items(
+                    items = feeds,
+                    key = { feed -> "${feed.labels.title}-${feed.time}" }, // 添加唯一key避免重组
+                    contentType = { "FeedItem" } // 添加contentType优化
+                ) { feed ->
+                    // 移除动画以减少抖动
+                    FeedItem(
+                        feed = feed,
+                        onClick = { onFeedClick(feed) }
+                    )
+                }
             }
         }
     }
@@ -172,8 +260,10 @@ fun FeedsList(
 @Stable
 fun FeedsScreen(
     feedsUiState: FeedsUiState,
+    selectedCategory: String,
     isRefreshing: Boolean,
     onFeedClick: (Feed) -> Unit,
+    onCategorySelected: (String) -> Unit,
     onRefresh: () -> Unit,
     onSettingsClick: () -> Unit = {},
     modifier: Modifier = Modifier
@@ -238,7 +328,10 @@ fun FeedsScreen(
             is FeedsUiState.Loading -> ModernLoadingScreen(Modifier.padding(innerPadding))
             is FeedsUiState.Success -> FeedsList(
                 feeds = feedsUiState.feeds,
+                categories = feedsUiState.categories,
+                selectedCategory = selectedCategory,
                 onFeedClick = onFeedClick,
+                onCategorySelected = onCategorySelected,
                 isRefreshing = isRefreshing,
                 onRefresh = onRefresh,
                 listState = listState,
@@ -397,13 +490,13 @@ fun FeedsScreenSuccessPreview() {
     MaterialTheme {
         FeedsScreen(
             feedsUiState = FeedsUiState.Success(
-                List(8) {
+                feeds = List(8) {
                     Feed(
                         labels = Labels(
                             title = "现代化标题 $it - 展示新的设计风格",
                             summary = "这是第 $it 条内容的现代化摘要信息，采用了全新的视觉设计和排版风格，提供更好的用户体验。",
                             source = "精选来源 $it",
-                            category = "",
+                            category = if (it % 3 == 0) "科技" else if (it % 3 == 1) "新闻" else "生活",
                             content = "",
                             link = "",
                             podcastUrl = "",
@@ -414,10 +507,13 @@ fun FeedsScreenSuccessPreview() {
                         ),
                         time = "2023-10-27T12:00:00Z"
                     )
-                }
+                },
+                categories = listOf("科技", "新闻", "生活")
             ),
+            selectedCategory = "",
             isRefreshing = false,
             onFeedClick = {},
+            onCategorySelected = {},
             onRefresh = {}
         )
     }
