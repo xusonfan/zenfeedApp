@@ -3,9 +3,13 @@ package com.ddyy.zenfeed.ui.feeds
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.PagerState
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.lazy.staggeredgrid.LazyVerticalStaggeredGrid
 import androidx.compose.foundation.lazy.staggeredgrid.LazyStaggeredGridState
 import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridCells
@@ -22,6 +26,7 @@ import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
+import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.*
@@ -189,160 +194,47 @@ fun FeedItem(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun CategoryFilterChips(
+fun CategoryTabs(
+    pagerState: PagerState,
     categories: List<String>,
-    selectedCategory: String,
-    onCategorySelected: (String) -> Unit,
+    onTabSelected: (Int) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    LazyRow(
+    val allCategories = remember { listOf("全部") + categories }
+
+    ScrollableTabRow(
+        selectedTabIndex = pagerState.currentPage,
         modifier = modifier,
-        contentPadding = PaddingValues(horizontal = 16.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        // "全部" 筛选条件
-        item {
-            FilterChip(
-                onClick = { onCategorySelected("") },
-                label = { Text("全部") },
-                selected = selectedCategory.isEmpty(),
-                leadingIcon = if (selectedCategory.isEmpty()) {
-                    {
-                        Icon(
-                            imageVector = Icons.Default.Check,
-                            contentDescription = null,
-                            modifier = Modifier.size(18.dp)
-                        )
-                    }
-                } else null,
-                colors = FilterChipDefaults.filterChipColors(
-                    selectedContainerColor = MaterialTheme.colorScheme.primary,
-                    selectedLabelColor = MaterialTheme.colorScheme.onPrimary
+        edgePadding = 16.dp,
+        indicator = { tabPositions ->
+            if (pagerState.currentPage < tabPositions.size) {
+                TabRowDefaults.SecondaryIndicator(
+                    modifier = Modifier.tabIndicatorOffset(tabPositions[pagerState.currentPage]),
+                    color = MaterialTheme.colorScheme.primary
                 )
-            )
+            }
         }
-        
-        // 分类筛选条件
-        items(categories) { category ->
-            FilterChip(
-                onClick = { onCategorySelected(category) },
-                label = {
+    ) {
+        allCategories.forEachIndexed { index, category ->
+            Tab(
+                selected = pagerState.currentPage == index,
+                onClick = { onTabSelected(index) },
+                text = {
                     Text(
                         text = category,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
-                },
-                selected = selectedCategory == category,
-                leadingIcon = if (selectedCategory == category) {
-                    {
-                        Icon(
-                            imageVector = Icons.Default.Check,
-                            contentDescription = null,
-                            modifier = Modifier.size(18.dp)
-                        )
-                    }
-                } else null,
-                colors = FilterChipDefaults.filterChipColors(
-                    selectedContainerColor = MaterialTheme.colorScheme.primary,
-                    selectedLabelColor = MaterialTheme.colorScheme.onPrimary
-                )
-            )
-        }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun FeedsList(
-    feeds: List<Feed>,
-    categories: List<String>,
-    selectedCategory: String,
-    onFeedClick: (Feed) -> Unit,
-    onCategorySelected: (String) -> Unit,
-    isRefreshing: Boolean,
-    onRefresh: () -> Unit,
-    listState: LazyStaggeredGridState,
-    onPlayPodcastList: ((List<Feed>, Int) -> Unit)? = null,
-    playerViewModel: PlayerViewModel? = null,
-    modifier: Modifier = Modifier
-) {
-    val pullToRefreshState = rememberPullToRefreshState()
-    
-    // 观察播放状态
-    val isPlaying by playerViewModel?.isPlaying?.observeAsState(false) ?: remember { mutableStateOf(false) }
-    val playlistInfo by playerViewModel?.playlistInfo?.observeAsState() ?: remember { mutableStateOf(null) }
-    
-    // 获取当前播放列表
-    val currentPlaylist = remember(playlistInfo) {
-        playerViewModel?.getCurrentPlaylist() ?: emptyList()
-    }
-    
-    Column(modifier = modifier.fillMaxSize()) {
-        // 分类筛选区域
-        if (categories.isNotEmpty()) {
-            CategoryFilterChips(
-                categories = categories,
-                selectedCategory = selectedCategory,
-                onCategorySelected = onCategorySelected,
-                modifier = Modifier.padding(vertical = 8.dp)
-            )
-            
-            HorizontalDivider(
-                modifier = Modifier.padding(horizontal = 16.dp),
-                color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)
-            )
-        }
-        
-        // Feed 列表
-        PullToRefreshBox(
-            state = pullToRefreshState,
-            isRefreshing = isRefreshing,
-            onRefresh = onRefresh,
-            modifier = Modifier.fillMaxSize()
-        ) {
-            LazyVerticalStaggeredGrid(
-                columns = StaggeredGridCells.Adaptive(minSize = 200.dp), // 调整最小尺寸以减少重排
-                state = listState,
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(12.dp), // 减少边距
-                verticalItemSpacing = 12.dp, // 减少间距
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                items(
-                    items = feeds,
-                    key = { feed -> "${feed.labels.title}-${feed.time}" }, // 添加唯一key避免重组
-                    contentType = { "FeedItem" } // 添加contentType优化
-                ) { feed ->
-                    // 判断当前Feed是否正在播放
-                    val isCurrentlyPlaying = currentPlaylist.any {
-                        it.labels.podcastUrl == feed.labels.podcastUrl && feed.labels.podcastUrl.isNotBlank()
-                    } && playlistInfo?.let { info ->
-                        info.currentIndex >= 0 &&
-                        info.currentIndex < currentPlaylist.size &&
-                        currentPlaylist[info.currentIndex].labels.podcastUrl == feed.labels.podcastUrl
-                    } == true
-                    
-                    FeedItem(
-                        feed = feed,
-                        onClick = { onFeedClick(feed) },
-                        onPlayPodcastList = if (feed.labels.podcastUrl.isNotBlank()) {
-                            { onPlayPodcastList?.invoke(feeds, feeds.indexOf(feed)) }
-                        } else null,
-                        onTogglePlayPause = if (feed.labels.podcastUrl.isNotBlank()) {
-                            { playerViewModel?.togglePlayPause() }
-                        } else null,
-                        isCurrentlyPlaying = isCurrentlyPlaying,
-                        isPlaying = isPlaying
-                    )
                 }
-            }
+            )
         }
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 @Stable
 fun FeedsScreen(
@@ -359,9 +251,39 @@ fun FeedsScreen(
     modifier: Modifier = Modifier
 ) {
     val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
-    val listState = rememberLazyStaggeredGridState()
     val coroutineScope = rememberCoroutineScope()
-    
+
+    // 为每个类别维护一个列表状态
+    val listStates = remember { mutableMapOf<String, LazyStaggeredGridState>() }
+    if (feedsUiState is FeedsUiState.Success) {
+        (listOf("") + feedsUiState.categories).forEach { category ->
+            listStates.getOrPut(category) { LazyStaggeredGridState() }
+        }
+    }
+    val currentListState = listStates[selectedCategory] ?: rememberLazyStaggeredGridState()
+
+    // Pager 状态
+    val pagerCategories = (feedsUiState as? FeedsUiState.Success)?.let { listOf("") + it.categories } ?: listOf("")
+    val pagerState = rememberPagerState(pageCount = { pagerCategories.size })
+
+    // 当 selectedCategory 改变时，滚动到对应的页面
+    LaunchedEffect(selectedCategory, pagerCategories) {
+        val page = pagerCategories.indexOf(selectedCategory)
+        if (page != -1 && page != pagerState.currentPage) {
+            pagerState.animateScrollToPage(page)
+        }
+    }
+
+    // 当用户滑动 Pager 时，更新 selectedCategory
+    LaunchedEffect(pagerState.currentPage, pagerState.isScrollInProgress) {
+        if (!pagerState.isScrollInProgress && pagerCategories.isNotEmpty()) {
+            val newCategory = pagerCategories[pagerState.currentPage]
+            if (newCategory != selectedCategory) {
+                // onCategorySelected(newCategory) // ViewModel不再需要此事件
+            }
+        }
+    }
+
     // 双击检测状态
     var lastClickTime by remember { mutableLongStateOf(0L) }
     val doubleTapThreshold = 300L // 双击时间间隔阈值（毫秒）
@@ -388,7 +310,10 @@ fun FeedsScreen(
                                 if (currentTime - lastClickTime <= doubleTapThreshold) {
                                     // 双击事件：滚动到顶部
                                     coroutineScope.launch {
-                                        listState.animateScrollToItem(0)
+                                        // 根据 pagerState 获取当前可见的列表状态并滚动
+                                        val categoryToScroll = pagerCategories.getOrNull(pagerState.currentPage)
+                                        val stateToScroll = categoryToScroll?.let { listStates[it] }
+                                        stateToScroll?.animateScrollToItem(0)
                                     }
                                     lastClickTime = 0L // 重置时间避免三击
                                 } else {
@@ -425,22 +350,99 @@ fun FeedsScreen(
         },
         containerColor = MaterialTheme.colorScheme.background
     ) { innerPadding ->
-        when (feedsUiState) {
-            is FeedsUiState.Loading -> ModernLoadingScreen(Modifier.padding(innerPadding))
-            is FeedsUiState.Success -> FeedsList(
-                feeds = feedsUiState.feeds,
-                categories = feedsUiState.categories,
-                selectedCategory = selectedCategory,
-                onFeedClick = onFeedClick,
-                onCategorySelected = onCategorySelected,
-                isRefreshing = isRefreshing,
-                onRefresh = onRefresh,
-                listState = listState,
-                onPlayPodcastList = onPlayPodcastList,
-                playerViewModel = playerViewModel,
-                modifier = Modifier.padding(innerPadding)
-            )
-            is FeedsUiState.Error -> ModernErrorScreen(Modifier.padding(innerPadding))
+        Column(
+            modifier = Modifier
+                .padding(innerPadding)
+                .fillMaxSize()
+        ) {
+            when (feedsUiState) {
+                is FeedsUiState.Loading -> ModernLoadingScreen(Modifier.fillMaxSize())
+                is FeedsUiState.Error -> ModernErrorScreen(Modifier.fillMaxSize())
+                is FeedsUiState.Success -> {
+                    val allCategories = remember(feedsUiState.categories) { listOf("") + feedsUiState.categories }
+                    
+                    // 分类 Tab
+                    CategoryTabs(
+                        pagerState = pagerState,
+                        categories = feedsUiState.categories,
+                        onTabSelected = { page ->
+                            coroutineScope.launch {
+                                pagerState.animateScrollToPage(page)
+                            }
+                        }
+                    )
+                    
+                    // 观察播放状态
+                    val isPlaying by playerViewModel?.isPlaying?.observeAsState(false) ?: remember { mutableStateOf(false) }
+                    val playlistInfo by playerViewModel?.playlistInfo?.observeAsState() ?: remember { mutableStateOf(null) }
+                    val currentPlaylist = remember(playlistInfo) {
+                        playerViewModel?.getCurrentPlaylist() ?: emptyList()
+                    }
+
+                    // 预先按分类对 feeds 进行分组，避免在 Pager 内部进行昂贵的过滤操作
+                    val categorizedFeeds = remember(feedsUiState.feeds) {
+                        val grouped = feedsUiState.feeds.groupBy { it.labels.category }
+                        // 将“全部”类别也添加进去，通过调换合并顺序，确保“全部”列表覆盖任何可能存在的、分类为空字符串的列表
+                        grouped + ("" to feedsUiState.feeds)
+                    }
+                    
+                    // 内容区域
+                    HorizontalPager(
+                        state = pagerState,
+                        modifier = Modifier.fillMaxSize(),
+                        key = { allCategories[it] }
+                    ) { page ->
+                        val category = allCategories[page]
+                        // 直接从预先计算好的 Map 中获取数据，这是一个非常快速的操作
+                        val feedsForCategory = categorizedFeeds[category] ?: emptyList()
+                        val listState = listStates[category] ?: rememberLazyStaggeredGridState()
+                        val pullToRefreshState = rememberPullToRefreshState()
+
+                        PullToRefreshBox(
+                            state = pullToRefreshState,
+                            isRefreshing = isRefreshing,
+                            onRefresh = onRefresh,
+                            modifier = Modifier.fillMaxSize()
+                        ) {
+                            LazyVerticalStaggeredGrid(
+                                columns = StaggeredGridCells.Adaptive(minSize = 200.dp),
+                                state = listState,
+                                modifier = Modifier.fillMaxSize(),
+                                contentPadding = PaddingValues(12.dp),
+                                verticalItemSpacing = 12.dp,
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                items(
+                                    items = feedsForCategory,
+                                    key = { feed -> "${feed.labels.title}-${feed.time}" },
+                                    contentType = { "FeedItem" }
+                                ) { feed ->
+                                    val isCurrentlyPlaying = currentPlaylist.any {
+                                        it.labels.podcastUrl == feed.labels.podcastUrl && feed.labels.podcastUrl.isNotBlank()
+                                    } && playlistInfo?.let { info ->
+                                        info.currentIndex >= 0 &&
+                                                info.currentIndex < currentPlaylist.size &&
+                                                currentPlaylist[info.currentIndex].labels.podcastUrl == feed.labels.podcastUrl
+                                    } == true
+
+                                    FeedItem(
+                                        feed = feed,
+                                        onClick = { onFeedClick(feed) },
+                                        onPlayPodcastList = if (feed.labels.podcastUrl.isNotBlank()) {
+                                            { onPlayPodcastList?.invoke(feedsUiState.feeds, feedsUiState.feeds.indexOf(feed)) }
+                                        } else null,
+                                        onTogglePlayPause = if (feed.labels.podcastUrl.isNotBlank()) {
+                                            { playerViewModel?.togglePlayPause() }
+                                        } else null,
+                                        isCurrentlyPlaying = isCurrentlyPlaying,
+                                        isPlaying = isPlaying
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 }

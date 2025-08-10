@@ -125,7 +125,7 @@ class FeedsViewModel(application: Application) : AndroidViewModel(application) {
      */
     fun selectCategory(category: String) {
         selectedCategory = category
-        updateFilteredFeeds()
+        // 这里不再调用 updateFilteredFeeds()，因为UI层会处理筛选
     }
     
     /**
@@ -155,12 +155,6 @@ class FeedsViewModel(application: Application) : AndroidViewModel(application) {
             feed.copy(isRead = isFeedRead(feed))
         }
         
-        val filteredFeeds = if (selectedCategory.isEmpty()) {
-            feedsWithReadStatus
-        } else {
-            feedsWithReadStatus.filter { it.labels.category == selectedCategory }
-        }
-        
         val categories = allFeeds
             .map { it.labels.category }
             .filter { it.isNotBlank() }
@@ -168,7 +162,7 @@ class FeedsViewModel(application: Application) : AndroidViewModel(application) {
             .sorted()
         
         feedsUiState = FeedsUiState.Success(
-            feeds = filteredFeeds,
+            feeds = feedsWithReadStatus, // 始终返回完整的列表
             categories = categories
         )
     }
