@@ -53,3 +53,14 @@ data class Labels(
     @SerializedName("type")
     val type: String
 )
+
+/**
+ * 播放列表信息
+ */
+data class PlaylistInfo(
+    val currentIndex: Int,
+    val totalCount: Int,
+    val hasNext: Boolean,
+    val hasPrevious: Boolean,
+    val isRepeat: Boolean
+)

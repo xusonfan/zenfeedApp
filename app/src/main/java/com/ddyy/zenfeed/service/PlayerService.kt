@@ -17,6 +17,7 @@ import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.media.session.MediaButtonReceiver
 import com.ddyy.zenfeed.data.Feed
+import com.ddyy.zenfeed.data.PlaylistInfo
 import com.ddyy.zenfeed.data.network.ApiClient
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -36,6 +37,9 @@ class PlayerService : Service() {
     private var isPrepared = false
     var currentTrackUrl: String? = null
         private set
+    
+    // 播放模式：false为顺序播放，true为循环播放
+    private var isRepeatMode = false
 
     private val handler = Handler(Looper.getMainLooper())
     private val progressUpdateRunnable = object : Runnable {
@@ -68,19 +72,45 @@ class PlayerService : Service() {
         mediaSession = MediaSessionCompat(this, "PlayerService")
         mediaSession?.setCallback(object : MediaSessionCompat.Callback() {
             override fun onPlay() {
-                resume()
+                try {
+                    resume()
+                } catch (e: Exception) {
+                    Log.e("PlayerService", "播放时出错", e)
+                }
             }
 
             override fun onPause() {
-                pause()
+                try {
+                    pause()
+                } catch (e: Exception) {
+                    Log.e("PlayerService", "暂停时出错", e)
+                }
             }
 
             override fun onSkipToNext() {
-                playNextTrack()
+                try {
+                    Log.d("PlayerService", "收到下一首命令")
+                    if (playlist.isNotEmpty() && (isRepeatMode || hasNextTrack())) {
+                        playNextTrack()
+                    } else {
+                        Log.d("PlayerService", "没有下一首可播放")
+                    }
+                } catch (e: Exception) {
+                    Log.e("PlayerService", "播放下一首时出错", e)
+                }
             }
 
             override fun onSkipToPrevious() {
-                playPreviousTrack()
+                try {
+                    Log.d("PlayerService", "收到上一首命令")
+                    if (playlist.isNotEmpty() && (isRepeatMode || hasPreviousTrack())) {
+                        playPreviousTrack()
+                    } else {
+                        Log.d("PlayerService", "没有上一首可播放")
+                    }
+                } catch (e: Exception) {
+                    Log.e("PlayerService", "播放上一首时出错", e)
+                }
             }
         })
         mediaSession?.isActive = true
@@ -93,8 +123,28 @@ class PlayerService : Service() {
     }
 
     private fun playCurrentTrack() {
-        if (playlist.isNotEmpty() && currentTrackIndex in playlist.indices) {
-            playInternal(playlist[currentTrackIndex].labels.podcastUrl)
+        try {
+            Log.d("PlayerService", "播放当前曲目，索引: $currentTrackIndex, 播放列表大小: ${playlist.size}")
+            
+            if (playlist.isEmpty()) {
+                Log.w("PlayerService", "播放列表为空")
+                return
+            }
+            
+            if (currentTrackIndex < 0 || currentTrackIndex >= playlist.size) {
+                Log.w("PlayerService", "无效的曲目索引: $currentTrackIndex")
+                return
+            }
+            
+            val currentFeed = playlist[currentTrackIndex]
+            if (currentFeed.labels.podcastUrl.isBlank()) {
+                Log.w("PlayerService", "当前曲目没有播客URL")
+                return
+            }
+            
+            playInternal(currentFeed.labels.podcastUrl)
+        } catch (e: Exception) {
+            Log.e("PlayerService", "播放当前曲目时发生异常", e)
         }
     }
 
@@ -143,7 +193,13 @@ class PlayerService : Service() {
                             setOnCompletionListener {
                                 stopProgressUpdate()
                                 updatePlaybackState(PlaybackStateCompat.STATE_STOPPED)
-                                playNextTrack()
+                                // 根据播放模式决定是否播放下一首
+                                if (isRepeatMode || hasNextTrack()) {
+                                    playNextTrack()
+                                } else {
+                                    // 播放列表结束，停止播放
+                                    Log.d("PlayerService", "播放列表播放完毕")
+                                }
                             }
                             setOnErrorListener { _, what, extra ->
                                 Log.e("PlayerService", "播放错误: what=$what, extra=$extra")
@@ -219,17 +275,135 @@ class PlayerService : Service() {
     }
 
     fun playNextTrack() {
-        if (playlist.isNotEmpty()) {
-            currentTrackIndex = (currentTrackIndex + 1) % playlist.size
-            playCurrentTrack()
+        try {
+            Log.d("PlayerService", "尝试播放下一首，当前索引: $currentTrackIndex, 播放列表大小: ${playlist.size}")
+            
+            if (playlist.isEmpty()) {
+                Log.w("PlayerService", "播放列表为空，无法播放下一首")
+                return
+            }
+            
+            if (isRepeatMode) {
+                // 循环模式：播放到最后一首后回到第一首
+                currentTrackIndex = (currentTrackIndex + 1) % playlist.size
+                Log.d("PlayerService", "循环模式，播放索引: $currentTrackIndex")
+                playCurrentTrack()
+            } else {
+                // 顺序模式：播放到最后一首后停止
+                if (hasNextTrack()) {
+                    currentTrackIndex++
+                    Log.d("PlayerService", "顺序模式，播放下一首，索引: $currentTrackIndex")
+                    playCurrentTrack()
+                } else {
+                    Log.d("PlayerService", "已是最后一首，播放结束")
+                    updatePlaybackState(PlaybackStateCompat.STATE_STOPPED)
+                }
+            }
+        } catch (e: Exception) {
+            Log.e("PlayerService", "播放下一首时发生异常", e)
         }
     }
 
     fun playPreviousTrack() {
-        if (playlist.isNotEmpty()) {
-            currentTrackIndex = if (currentTrackIndex > 0) currentTrackIndex - 1 else playlist.size - 1
-            playCurrentTrack()
+        try {
+            Log.d("PlayerService", "尝试播放上一首，当前索引: $currentTrackIndex, 播放列表大小: ${playlist.size}")
+            
+            if (playlist.isEmpty()) {
+                Log.w("PlayerService", "播放列表为空，无法播放上一首")
+                return
+            }
+            
+            if (isRepeatMode) {
+                // 循环模式：播放到第一首后回到最后一首
+                currentTrackIndex = if (currentTrackIndex > 0) currentTrackIndex - 1 else playlist.size - 1
+                Log.d("PlayerService", "循环模式，播放索引: $currentTrackIndex")
+                playCurrentTrack()
+            } else {
+                // 顺序模式：播放到第一首后停止
+                if (hasPreviousTrack()) {
+                    currentTrackIndex--
+                    Log.d("PlayerService", "顺序模式，播放上一首，索引: $currentTrackIndex")
+                    playCurrentTrack()
+                } else {
+                    Log.d("PlayerService", "已是第一首，无法播放上一首")
+                }
+            }
+        } catch (e: Exception) {
+            Log.e("PlayerService", "播放上一首时发生异常", e)
         }
+    }
+    
+    /**
+     * 检查是否有下一首
+     */
+    fun hasNextTrack(): Boolean {
+        return try {
+            playlist.isNotEmpty() && currentTrackIndex >= 0 && currentTrackIndex < playlist.size - 1
+        } catch (e: Exception) {
+            Log.e("PlayerService", "检查下一首时出错", e)
+            false
+        }
+    }
+    
+    /**
+     * 检查是否有上一首
+     */
+    fun hasPreviousTrack(): Boolean {
+        return try {
+            playlist.isNotEmpty() && currentTrackIndex > 0 && currentTrackIndex < playlist.size
+        } catch (e: Exception) {
+            Log.e("PlayerService", "检查上一首时出错", e)
+            false
+        }
+    }
+    
+    /**
+     * 设置播放模式
+     * @param repeat true为循环播放，false为顺序播放
+     */
+    fun setRepeatMode(repeat: Boolean) {
+        isRepeatMode = repeat
+        Log.d("PlayerService", "播放模式设置为: ${if (repeat) "循环播放" else "顺序播放"}")
+    }
+    
+    /**
+     * 获取当前播放模式
+     */
+    fun isRepeatMode(): Boolean = isRepeatMode
+    
+    /**
+     * 获取当前播放列表
+     */
+    fun getCurrentPlaylist(): List<Feed> = playlist.toList()
+    
+    /**
+     * 播放指定索引的曲目
+     */
+    fun playTrackAtIndex(index: Int) {
+        try {
+            if (index >= 0 && index < playlist.size) {
+                currentTrackIndex = index
+                playCurrentTrack()
+                Log.d("PlayerService", "播放指定索引曲目: $index")
+            } else {
+                Log.w("PlayerService", "无效的曲目索引: $index, 播放列表大小: ${playlist.size}")
+            }
+        } catch (e: Exception) {
+            Log.e("PlayerService", "播放指定索引曲目时出错", e)
+        }
+    }
+    
+    /**
+     * 获取当前播放列表信息
+     */
+    fun getCurrentPlaylistInfo(): PlaylistInfo {
+        return PlaylistInfo(
+            currentIndex = currentTrackIndex,
+            totalCount = playlist.size,
+            hasNext = hasNextTrack(),
+            hasPrevious = hasPreviousTrack(),
+            isRepeat = isRepeatMode
+        )
     }
 
     fun pause() {
@@ -294,7 +468,7 @@ class PlayerService : Service() {
     }
 
     private fun updatePlaybackState(state: Int) {
-        val position = mediaPlayer?.currentPosition?.toLong() ?: 0L
+        val position = if (isPrepared) mediaPlayer?.currentPosition?.toLong() ?: 0L else 0L
         val playbackSpeed = if (state == PlaybackStateCompat.STATE_PLAYING) 1.0f else 0.0f
         val playbackStateBuilder = PlaybackStateCompat.Builder()
             .setActions(
@@ -335,8 +509,8 @@ class PlayerService : Service() {
             )
             .addAction(
                 NotificationCompat.Action(
-                    if (mediaPlayer?.isPlaying == true) android.R.drawable.ic_media_pause else android.R.drawable.ic_media_play,
-                    if (mediaPlayer?.isPlaying == true) "Pause" else "Play",
+                    if (isPrepared && mediaPlayer?.isPlaying == true) android.R.drawable.ic_media_pause else android.R.drawable.ic_media_play,
+                    if (isPrepared && mediaPlayer?.isPlaying == true) "Pause" else "Play",
                     MediaButtonReceiver.buildMediaButtonPendingIntent(this, PlaybackStateCompat.ACTION_PLAY_PAUSE)
                 )
             )

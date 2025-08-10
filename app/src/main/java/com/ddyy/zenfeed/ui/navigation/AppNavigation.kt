@@ -6,9 +6,11 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.navigation.compose.NavHost
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.NavType
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
@@ -17,6 +19,7 @@ import com.ddyy.zenfeed.ui.SharedViewModel
 import com.ddyy.zenfeed.ui.feeds.FeedDetailScreen
 import com.ddyy.zenfeed.ui.feeds.FeedsScreen
 import com.ddyy.zenfeed.ui.feeds.FeedsViewModel
+import com.ddyy.zenfeed.ui.player.PlayerViewModel
 import com.ddyy.zenfeed.ui.settings.SettingsScreen
 import com.ddyy.zenfeed.ui.settings.SettingsViewModel
 import com.ddyy.zenfeed.ui.webview.WebViewScreen
@@ -25,6 +28,16 @@ import com.ddyy.zenfeed.ui.webview.WebViewScreen
 fun AppNavigation() {
     val navController = rememberNavController()
     val sharedViewModel: SharedViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
+    val playerViewModel: PlayerViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
+    val context = LocalContext.current
+
+    // 确保播放器服务在应用启动时就绑定
+    DisposableEffect(Unit) {
+        playerViewModel.bindService(context)
+        onDispose {
+            playerViewModel.unbindService(context)
+        }
+    }
 
     NavHost(
         navController = navController,
@@ -51,6 +64,20 @@ fun AppNavigation() {
                 },
                 onSettingsClick = {
                     navController.navigate("settings")
+                },
+                onPlayPodcastList = { feeds, startIndex ->
+                    // 过滤出有播客URL的Feed
+                    val podcastFeeds = feeds.filter { it.labels.podcastUrl.isNotBlank() }
+                    if (podcastFeeds.isNotEmpty()) {
+                        // 找到当前Feed在过滤后列表中的正确索引
+                        val targetFeed = feeds[startIndex]
+                        val correctedIndex = podcastFeeds.indexOfFirst {
+                            it.labels.podcastUrl == targetFeed.labels.podcastUrl
+                        }.coerceAtLeast(0)
+                        
+                        // 播放播客列表
+                        playerViewModel.playPodcastPlaylist(podcastFeeds, correctedIndex)
+                    }
                 }
             )
         }

@@ -17,6 +17,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Article
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.ErrorOutline
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
@@ -38,7 +39,12 @@ import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun FeedItem(feed: Feed, onClick: () -> Unit, modifier: Modifier = Modifier) {
+fun FeedItem(
+    feed: Feed,
+    onClick: () -> Unit,
+    onPlayPodcastList: (() -> Unit)? = null,
+    modifier: Modifier = Modifier
+) {
     // 简化卡片设计，减少重绘开销
     Card(
         onClick = onClick,
@@ -129,6 +135,35 @@ fun FeedItem(feed: Feed, onClick: () -> Unit, modifier: Modifier = Modifier) {
                     )
                 )
             }
+            
+            // 播客播放按钮（如果有播客URL）- 放在底部不影响标题和摘要
+            if (feed.labels.podcastUrl.isNotBlank() && onPlayPodcastList != null) {
+                Spacer(modifier = Modifier.height(12.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    OutlinedButton(
+                        onClick = onPlayPodcastList,
+                        modifier = Modifier.height(36.dp),
+                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            contentColor = MaterialTheme.colorScheme.primary
+                        )
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.PlayArrow,
+                            contentDescription = "播放播客列表",
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "播放播客",
+                            style = MaterialTheme.typography.labelMedium
+                        )
+                    }
+                }
+            }
         }
     }
 }
@@ -208,6 +243,7 @@ fun FeedsList(
     isRefreshing: Boolean,
     onRefresh: () -> Unit,
     listState: LazyStaggeredGridState,
+    onPlayPodcastList: ((List<Feed>, Int) -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val pullToRefreshState = rememberPullToRefreshState()
@@ -251,7 +287,10 @@ fun FeedsList(
                     // 移除动画以减少抖动
                     FeedItem(
                         feed = feed,
-                        onClick = { onFeedClick(feed) }
+                        onClick = { onFeedClick(feed) },
+                        onPlayPodcastList = if (feed.labels.podcastUrl.isNotBlank()) {
+                            { onPlayPodcastList?.invoke(feeds, feeds.indexOf(feed)) }
+                        } else null
                     )
                 }
             }
@@ -271,6 +310,7 @@ fun FeedsScreen(
     onCategorySelected: (String) -> Unit,
     onRefresh: () -> Unit,
     onSettingsClick: () -> Unit = {},
+    onPlayPodcastList: ((List<Feed>, Int) -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
@@ -351,6 +391,7 @@ fun FeedsScreen(
                 isRefreshing = isRefreshing,
                 onRefresh = onRefresh,
                 listState = listState,
+                onPlayPodcastList = onPlayPodcastList,
                 modifier = Modifier.padding(innerPadding)
             )
             is FeedsUiState.Error -> ModernErrorScreen(Modifier.padding(innerPadding))
