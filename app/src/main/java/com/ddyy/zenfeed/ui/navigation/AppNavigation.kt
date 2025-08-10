@@ -1,5 +1,6 @@
 package com.ddyy.zenfeed.ui.navigation
 
+import android.content.Intent
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Scaffold
@@ -7,6 +8,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.navigation.compose.NavHost
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
@@ -25,9 +27,8 @@ import com.ddyy.zenfeed.ui.settings.SettingsViewModel
 import com.ddyy.zenfeed.ui.webview.WebViewScreen
 
 @Composable
-fun AppNavigation() {
+fun AppNavigation(sharedViewModel: SharedViewModel) {
     val navController = rememberNavController()
-    val sharedViewModel: SharedViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
     val playerViewModel: PlayerViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
     val context = LocalContext.current
 
@@ -36,6 +37,19 @@ fun AppNavigation() {
         playerViewModel.bindService(context)
         onDispose {
             playerViewModel.unbindService(context)
+        }
+    }
+    
+    // 监听导航标志，处理从通知栏跳转到详情页
+    LaunchedEffect(sharedViewModel.shouldNavigateToDetail) {
+        if (sharedViewModel.shouldNavigateToDetail) {
+            // 导航到feedDetail页面
+            navController.navigate("feedDetail") {
+                // 如果当前不在feeds页面，先导航到feeds，然后到详情页
+                popUpTo("feeds") { inclusive = false }
+            }
+            // 重置导航标志
+            sharedViewModel.setNavigateToDetail(false)
         }
     }
 

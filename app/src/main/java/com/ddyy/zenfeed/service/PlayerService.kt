@@ -2,6 +2,7 @@ package com.ddyy.zenfeed.service
 
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.app.PendingIntent
 import android.app.Service
 import android.content.Intent
 import android.media.MediaPlayer
@@ -496,10 +497,38 @@ class PlayerService : Service() {
 
     private fun updateNotification() {
         val track = playlist.getOrNull(currentTrackIndex) ?: return
+        
+        // 创建点击通知跳转到文章详情的Intent
+        val contentIntent = Intent(this, com.ddyy.zenfeed.MainActivity::class.java).apply {
+            action = "ACTION_OPEN_FEED_DETAIL"
+            putExtra("FEED_TITLE", track.labels.title)
+            putExtra("FEED_SOURCE", track.labels.source)
+            putExtra("FEED_CONTENT", track.labels.content)
+            putExtra("FEED_LINK", track.labels.link)
+            putExtra("FEED_SUMMARY", track.labels.summary)
+            putExtra("FEED_SUMMARY_HTML_SNIPPET", track.labels.summaryHtmlSnippet)
+            putExtra("FEED_PUB_TIME", track.labels.pubTime)
+            putExtra("FEED_CATEGORY", track.labels.category)
+            putExtra("FEED_TAGS", track.labels.tags)
+            putExtra("FEED_TYPE", track.labels.type)
+            putExtra("FEED_PODCAST_URL", track.labels.podcastUrl)
+            putExtra("FEED_TIME", track.time)
+            putExtra("FEED_IS_READ", track.isRead)
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+        }
+        
+        val contentPendingIntent = PendingIntent.getActivity(
+            this,
+            0,
+            contentIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        
         val notification = NotificationCompat.Builder(this, "zenfeed_player")
             .setContentTitle(track.labels.title)
             .setContentText(track.labels.source)
             .setSmallIcon(android.R.drawable.ic_media_play) // Replace with your app icon
+            .setContentIntent(contentPendingIntent) // 设置点击通知的跳转Intent
             .addAction(
                 NotificationCompat.Action(
                     android.R.drawable.ic_media_previous,
