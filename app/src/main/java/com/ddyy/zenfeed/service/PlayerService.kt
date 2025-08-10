@@ -17,6 +17,14 @@ import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.media.session.MediaButtonReceiver
 import com.ddyy.zenfeed.data.Feed
+import com.ddyy.zenfeed.data.network.ApiClient
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import okhttp3.Request
+import java.io.File
+import java.io.FileOutputStream
 
 class PlayerService : Service() {
 
@@ -101,43 +109,112 @@ class PlayerService : Service() {
         isPrepared = false
         stopProgressUpdate()
         mediaPlayer?.release()
-        mediaPlayer = MediaPlayer().apply {
+        
+        Log.d("PlayerService", "准备播放: $url")
+        updatePlaybackState(PlaybackStateCompat.STATE_BUFFERING)
+        
+        // 使用协程在后台下载媒体文件（支持代理）
+        CoroutineScope(Dispatchers.IO).launch {
             try {
-                setDataSource(url)
-                setOnPreparedListener { mediaPlayer ->
-                    isPrepared = true
-                    val track = playlist.getOrNull(currentTrackIndex)
-                    val duration = mediaPlayer.duration.toLong()
+                val localFile = downloadMediaFile(url)
+                
+                // 在主线程设置MediaPlayer
+                withContext(Dispatchers.Main) {
+                    mediaPlayer = MediaPlayer().apply {
+                        try {
+                            setDataSource(localFile.absolutePath)
+                            setOnPreparedListener { mediaPlayer ->
+                                isPrepared = true
+                                val track = playlist.getOrNull(currentTrackIndex)
+                                val duration = mediaPlayer.duration.toLong()
 
-                    val metadata = MediaMetadataCompat.Builder()
-                        .putString(MediaMetadataCompat.METADATA_KEY_TITLE, track?.labels?.title)
-                        .putString(MediaMetadataCompat.METADATA_KEY_ARTIST, track?.labels?.source)
-                        .putLong(MediaMetadataCompat.METADATA_KEY_DURATION, duration)
-                        .build()
-                    mediaSession?.setMetadata(metadata)
+                                val metadata = MediaMetadataCompat.Builder()
+                                    .putString(MediaMetadataCompat.METADATA_KEY_TITLE, track?.labels?.title)
+                                    .putString(MediaMetadataCompat.METADATA_KEY_ARTIST, track?.labels?.source)
+                                    .putLong(MediaMetadataCompat.METADATA_KEY_DURATION, duration)
+                                    .build()
+                                mediaSession?.setMetadata(metadata)
 
-                    start()
-                    Log.d("PlayerService", "开始播放: $url")
-                    updatePlaybackState(PlaybackStateCompat.STATE_PLAYING)
-                    startProgressUpdate()
+                                start()
+                                Log.d("PlayerService", "开始播放: $url")
+                                updatePlaybackState(PlaybackStateCompat.STATE_PLAYING)
+                                startProgressUpdate()
+                            }
+                            setOnCompletionListener {
+                                stopProgressUpdate()
+                                updatePlaybackState(PlaybackStateCompat.STATE_STOPPED)
+                                playNextTrack()
+                            }
+                            setOnErrorListener { _, what, extra ->
+                                Log.e("PlayerService", "播放错误: what=$what, extra=$extra")
+                                stopProgressUpdate()
+                                updatePlaybackState(PlaybackStateCompat.STATE_ERROR)
+                                isPrepared = false
+                                true
+                            }
+                            prepareAsync()
+                        } catch (e: Exception) {
+                            Log.e("PlayerService", "设置数据源时出错", e)
+                            updatePlaybackState(PlaybackStateCompat.STATE_ERROR)
+                        }
+                    }
                 }
-                setOnCompletionListener {
-                    stopProgressUpdate()
-                    updatePlaybackState(PlaybackStateCompat.STATE_STOPPED)
-                    playNextTrack()
-                }
-                setOnErrorListener { _, what, extra ->
-                    Log.e("PlayerService", "播放错误: what=$what, extra=$extra")
-                    stopProgressUpdate()
-                    updatePlaybackState(PlaybackStateCompat.STATE_ERROR)
-                    isPrepared = false
-                    true
-                }
-                prepareAsync()
             } catch (e: Exception) {
-                Log.e("PlayerService", "设置数据源时出错", e)
-                updatePlaybackState(PlaybackStateCompat.STATE_ERROR)
+                Log.e("PlayerService", "下载媒体文件失败", e)
+                withContext(Dispatchers.Main) {
+                    updatePlaybackState(PlaybackStateCompat.STATE_ERROR)
+                }
             }
+        }
+    }
+    
+    /**
+     * 通过代理下载媒体文件到本地缓存
+     */
+    private suspend fun downloadMediaFile(url: String): File {
+        return withContext(Dispatchers.IO) {
+            Log.d("PlayerService", "开始通过代理下载媒体文件: $url")
+            
+            // 使用配置了代理的 OkHttp 客户端
+            val client = ApiClient.getHttpClient(this@PlayerService)
+            
+            val request = Request.Builder()
+                .url(url)
+                .build()
+            
+            val response = client.newCall(request).execute()
+            
+            if (!response.isSuccessful) {
+                throw Exception("下载失败: ${response.code}")
+            }
+            
+            // 创建缓存目录
+            val cacheDir = File(cacheDir, "media_cache")
+            if (!cacheDir.exists()) {
+                cacheDir.mkdirs()
+            }
+            
+            // 生成文件名（基于URL的hash值）
+            val fileName = "${url.hashCode().toString()}.tmp"
+            val localFile = File(cacheDir, fileName)
+            
+            // 如果文件已存在且大小合理，直接使用
+            if (localFile.exists() && localFile.length() > 0) {
+                Log.d("PlayerService", "使用缓存的媒体文件: ${localFile.absolutePath}")
+                return@withContext localFile
+            }
+            
+            // 下载文件
+            response.body?.let { responseBody ->
+                FileOutputStream(localFile).use { output ->
+                    responseBody.byteStream().use { input ->
+                        input.copyTo(output)
+                    }
+                }
+                Log.d("PlayerService", "媒体文件下载完成: ${localFile.absolutePath}, 大小: ${localFile.length()} 字节")
+            } ?: throw Exception("响应体为空")
+            
+            localFile
         }
     }
 
@@ -180,7 +257,32 @@ class PlayerService : Service() {
         mediaPlayer?.release()
         mediaPlayer = null
         mediaSession?.release()
+        cleanupOldCacheFiles()
         super.onDestroy()
+    }
+    
+    /**
+     * 清理旧的缓存文件（保留最近的10个文件）
+     */
+    private fun cleanupOldCacheFiles() {
+        try {
+            val cacheDir = File(cacheDir, "media_cache")
+            if (cacheDir.exists()) {
+                val files = cacheDir.listFiles()?.toList() ?: return
+                if (files.size > 10) {
+                    // 按修改时间排序，删除最旧的文件
+                    files.sortedBy { it.lastModified() }
+                        .take(files.size - 10)
+                        .forEach { file ->
+                            if (file.delete()) {
+                                Log.d("PlayerService", "删除旧缓存文件: ${file.name}")
+                            }
+                        }
+                }
+            }
+        } catch (e: Exception) {
+            Log.w("PlayerService", "清理缓存文件失败", e)
+        }
     }
 
     private fun startProgressUpdate() {

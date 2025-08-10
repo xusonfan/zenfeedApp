@@ -1,9 +1,10 @@
 package com.ddyy.zenfeed.ui.feeds
 
+import android.app.Application
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import androidx.lifecycle.ViewModel
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.ddyy.zenfeed.data.Feed
 import com.ddyy.zenfeed.data.FeedRepository
@@ -15,7 +16,13 @@ sealed interface FeedsUiState {
     data object Loading : FeedsUiState
 }
 
-class FeedsViewModel(private val feedRepository: FeedRepository = FeedRepository()) : ViewModel() {
+/**
+ * Feeds页面的ViewModel
+ * 继承AndroidViewModel以获取Application context用于API配置
+ */
+class FeedsViewModel(application: Application) : AndroidViewModel(application) {
+    
+    private val feedRepository = FeedRepository(application.applicationContext)
 
     var feedsUiState: FeedsUiState by mutableStateOf(FeedsUiState.Loading)
         private set
@@ -24,6 +31,9 @@ class FeedsViewModel(private val feedRepository: FeedRepository = FeedRepository
         getFeeds()
     }
 
+    /**
+     * 获取Feed列表
+     */
     fun getFeeds() {
         viewModelScope.launch {
             feedsUiState = FeedsUiState.Loading

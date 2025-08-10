@@ -12,6 +12,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Article
 import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Stable
@@ -150,6 +151,7 @@ fun FeedsList(feeds: List<Feed>, onFeedClick: (Feed) -> Unit, modifier: Modifier
 fun FeedsScreen(
     feedsUiState: FeedsUiState,
     onFeedClick: (Feed) -> Unit,
+    onSettingsClick: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
@@ -159,7 +161,7 @@ fun FeedsScreen(
         topBar = {
             // 现代化的顶部应用栏
             CenterAlignedTopAppBar(
-                title = { 
+                title = {
                     Text(
                         text = "Zenfeed",
                         style = MaterialTheme.typography.headlineMedium.copy(
@@ -168,6 +170,15 @@ fun FeedsScreen(
                         ),
                         color = MaterialTheme.colorScheme.primary
                     )
+                },
+                actions = {
+                    IconButton(onClick = onSettingsClick) {
+                        Icon(
+                            imageVector = Icons.Default.Settings,
+                            contentDescription = "设置",
+                            tint = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
                 },
                 scrollBehavior = scrollBehavior,
                 colors = TopAppBarDefaults.centerAlignedTopAppBarColors(

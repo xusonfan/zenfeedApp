@@ -17,6 +17,8 @@ import com.ddyy.zenfeed.ui.SharedViewModel
 import com.ddyy.zenfeed.ui.feeds.FeedDetailScreen
 import com.ddyy.zenfeed.ui.feeds.FeedsScreen
 import com.ddyy.zenfeed.ui.feeds.FeedsViewModel
+import com.ddyy.zenfeed.ui.settings.SettingsScreen
+import com.ddyy.zenfeed.ui.settings.SettingsViewModel
 
 @Composable
 fun AppNavigation() {
@@ -34,6 +36,9 @@ fun AppNavigation() {
                 onFeedClick = { feed ->
                     sharedViewModel.selectFeed(feed)
                     navController.navigate("feedDetail")
+                },
+                onSettingsClick = {
+                    navController.navigate("settings")
                 }
             )
         }
@@ -42,6 +47,13 @@ fun AppNavigation() {
             if (feed != null) {
                 FeedDetailScreen(feed = feed, onBack = { navController.popBackStack() })
             }
+        }
+        composable("settings") {
+            val settingsViewModel = androidx.lifecycle.viewmodel.compose.viewModel<SettingsViewModel>()
+            SettingsScreen(
+                navController = navController,
+                settingsViewModel = settingsViewModel
+            )
         }
     }
 }

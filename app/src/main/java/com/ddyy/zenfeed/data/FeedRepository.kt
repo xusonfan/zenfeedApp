@@ -1,12 +1,24 @@
 package com.ddyy.zenfeed.data
 
+import android.content.Context
 import com.ddyy.zenfeed.data.network.ApiClient
+import kotlinx.coroutines.flow.first
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.TimeZone
 
-class FeedRepository {
+/**
+ * Feed数据仓库
+ * 负责从API获取Feed数据，支持动态配置API地址和后端URL
+ */
+class FeedRepository(private val context: Context) {
+    
+    private val settingsDataStore = SettingsDataStore(context)
 
+    /**
+     * 获取Feed列表
+     * @return Feed响应结果
+     */
     suspend fun getFeeds(): Result<FeedResponse> {
         return try {
             val now = Date()
@@ -22,8 +34,12 @@ class FeedRepository {
                 query = "",
                 summarize = false
             )
-            val response = ApiClient.apiService.getFeeds(
-                backendUrl = "http://zenfeed:1300",
+            
+            // 使用动态API服务和后端URL
+            val apiService = ApiClient.getApiService(context)
+            val backendUrl = settingsDataStore.backendUrl.first()
+            val response = apiService.getFeeds(
+                backendUrl = backendUrl,
                 body = requestBody
             )
             Result.success(response)
