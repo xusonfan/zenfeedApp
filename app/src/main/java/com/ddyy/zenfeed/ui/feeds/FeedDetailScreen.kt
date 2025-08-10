@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -38,6 +39,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.runtime.mutableStateOf
@@ -221,6 +223,20 @@ fun PlaylistDialog(
 ) {
     val playlist = remember { playerViewModel.getCurrentPlaylist() }
     val playlistInfo by playerViewModel.playlistInfo.observeAsState()
+    val listState = rememberLazyListState()
+    
+    // 当弹窗打开时，自动滚动到当前播放的项目
+    LaunchedEffect(playlistInfo?.currentIndex) {
+        playlistInfo?.let { info ->
+            if (info.currentIndex >= 0 && info.currentIndex < playlist.size) {
+                // 滚动到当前播放项，居中显示
+                listState.animateScrollToItem(
+                    index = info.currentIndex,
+                    scrollOffset = -200 // 负偏移让当前项更靠近顶部
+                )
+            }
+        }
+    }
     
     Dialog(onDismissRequest = onDismiss) {
         Card(
@@ -259,6 +275,7 @@ fun PlaylistDialog(
                 
                 // 播放列表内容
                 LazyColumn(
+                    state = listState,
                     modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(vertical = 8.dp)
                 ) {
