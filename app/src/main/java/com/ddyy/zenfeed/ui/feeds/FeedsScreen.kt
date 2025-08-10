@@ -85,7 +85,7 @@ fun FeedItem(feed: Feed, onClick: () -> Unit, modifier: Modifier = Modifier) {
             
             Spacer(modifier = Modifier.height(8.dp))
             
-            // 标题
+            // 标题 - 根据阅读状态调整透明度
             Text(
                 text = feed.labels.title,
                 style = MaterialTheme.typography.titleMedium.copy(
@@ -93,7 +93,9 @@ fun FeedItem(feed: Feed, onClick: () -> Unit, modifier: Modifier = Modifier) {
                 ),
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
-                color = MaterialTheme.colorScheme.onSurface
+                color = MaterialTheme.colorScheme.onSurface.copy(
+                    alpha = if (feed.isRead) 0.6f else 1.0f // 已读文章标题淡化
+                )
             )
             
             // 摘要内容处理
@@ -122,7 +124,9 @@ fun FeedItem(feed: Feed, onClick: () -> Unit, modifier: Modifier = Modifier) {
                     style = MaterialTheme.typography.bodyMedium,
                     maxLines = 3, // 减少行数
                     overflow = TextOverflow.Ellipsis,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(
+                        alpha = if (feed.isRead) 0.5f else 1.0f // 已读文章摘要也淡化
+                    )
                 )
             }
         }
@@ -474,25 +478,53 @@ fun ModernErrorScreen(modifier: Modifier = Modifier) {
 @Composable
 fun FeedItemPreview() {
     MaterialTheme {
-        FeedItem(
-            feed = Feed(
-                labels = Labels(
-                    title = "这是一个现代化的示例标题，它展示了全新的设计风格和视觉效果",
-                    summary = "这是一个更加精美的摘要展示，采用了现代化的排版和间距设计，提供更好的阅读体验。新的设计包含了渐变背景、圆角卡片和优雅的动画效果，让整个界面看起来更加专业和吸引人。",
-                    source = "现代化来源",
-                    category = "",
-                    content = "",
-                    link = "",
-                    podcastUrl = "",
-                    pubTime = "",
-                    summaryHtmlSnippet = "",
-                    tags = "",
-                    type = ""
+        Column {
+            // 未读文章示例
+            FeedItem(
+                feed = Feed(
+                    labels = Labels(
+                        title = "这是一个现代化的示例标题，它展示了全新的设计风格和视觉效果",
+                        summary = "这是一个更加精美的摘要展示，采用了现代化的排版和间距设计，提供更好的阅读体验。新的设计包含了渐变背景、圆角卡片和优雅的动画效果，让整个界面看起来更加专业和吸引人。",
+                        source = "现代化来源",
+                        category = "",
+                        content = "",
+                        link = "",
+                        podcastUrl = "",
+                        pubTime = "",
+                        summaryHtmlSnippet = "",
+                        tags = "",
+                        type = ""
+                    ),
+                    time = "2023-10-27T12:00:00Z",
+                    isRead = false
                 ),
-                time = "2023-10-27T12:00:00Z"
-            ),
-            onClick = {}
-        )
+                onClick = {}
+            )
+            
+            Spacer(modifier = Modifier.height(8.dp))
+            
+            // 已读文章示例（淡化效果）
+            FeedItem(
+                feed = Feed(
+                    labels = Labels(
+                        title = "这是一篇已读文章的标题，显示淡化效果",
+                        summary = "这是已读文章的摘要，文字会显示为淡化状态，便于用户区分已读和未读内容。",
+                        source = "示例来源",
+                        category = "",
+                        content = "",
+                        link = "",
+                        podcastUrl = "",
+                        pubTime = "",
+                        summaryHtmlSnippet = "",
+                        tags = "",
+                        type = ""
+                    ),
+                    time = "2023-10-27T11:00:00Z",
+                    isRead = true
+                ),
+                onClick = {}
+            )
+        }
     }
 }
 
@@ -517,7 +549,8 @@ fun FeedsScreenSuccessPreview() {
                             tags = "",
                             type = ""
                         ),
-                        time = "2023-10-27T12:00:00Z"
+                        time = "2023-10-27T12:00:00Z",
+                        isRead = it % 3 == 0 // 每三个中有一个是已读状态，用于展示淡化效果
                     )
                 },
                 categories = listOf("科技", "新闻", "生活")

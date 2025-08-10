@@ -38,6 +38,9 @@ class FeedsViewModel(application: Application) : AndroidViewModel(application) {
     // 原始的完整Feed列表
     private var allFeeds: List<Feed> = emptyList()
     
+    // 已读文章的标识符集合（使用标题+时间作为唯一标识）
+    private val readFeedIds = mutableSetOf<String>()
+    
     // 当前选中的分类，空字符串表示显示全部
     var selectedCategory: String by mutableStateOf("")
         private set
@@ -126,13 +129,36 @@ class FeedsViewModel(application: Application) : AndroidViewModel(application) {
     }
     
     /**
+     * 标记文章为已读
+     */
+    fun markFeedAsRead(feed: Feed) {
+        val feedId = "${feed.labels.title}-${feed.time}"
+        readFeedIds.add(feedId)
+        updateFilteredFeeds() // 重新更新UI以反映阅读状态变化
+        android.util.Log.d("FeedsViewModel", "标记文章为已读: ${feed.labels.title}")
+    }
+    
+    /**
+     * 检查文章是否已读
+     */
+    private fun isFeedRead(feed: Feed): Boolean {
+        val feedId = "${feed.labels.title}-${feed.time}"
+        return readFeedIds.contains(feedId)
+    }
+    
+    /**
      * 更新筛选后的Feed列表
      */
     private fun updateFilteredFeeds() {
+        // 为所有Feed设置正确的阅读状态
+        val feedsWithReadStatus = allFeeds.map { feed ->
+            feed.copy(isRead = isFeedRead(feed))
+        }
+        
         val filteredFeeds = if (selectedCategory.isEmpty()) {
-            allFeeds
+            feedsWithReadStatus
         } else {
-            allFeeds.filter { it.labels.category == selectedCategory }
+            feedsWithReadStatus.filter { it.labels.category == selectedCategory }
         }
         
         val categories = allFeeds

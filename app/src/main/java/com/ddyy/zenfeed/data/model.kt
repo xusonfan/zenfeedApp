@@ -11,7 +11,9 @@ data class Feed(
     @SerializedName("labels")
     val labels: Labels,
     @SerializedName("time")
-    val time: String
+    val time: String,
+    // 阅读状态，默认为未读
+    val isRead: Boolean = false
 )
 
 data class FeedRequest(

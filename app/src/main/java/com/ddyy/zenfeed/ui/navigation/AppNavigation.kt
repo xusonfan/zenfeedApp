@@ -38,6 +38,8 @@ fun AppNavigation() {
                 isRefreshing = feedsViewModel.isRefreshing,
                 isBackgroundRefreshing = feedsViewModel.isBackgroundRefreshing,
                 onFeedClick = { feed ->
+                    // 标记文章为已读
+                    feedsViewModel.markFeedAsRead(feed)
                     sharedViewModel.selectFeed(feed)
                     navController.navigate("feedDetail")
                 },
