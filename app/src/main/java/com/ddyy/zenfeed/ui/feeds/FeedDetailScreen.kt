@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -26,6 +27,8 @@ import androidx.compose.material.icons.filled.OpenInBrowser
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.PlaylistPlay
+import androidx.compose.material.icons.filled.Shuffle
+import androidx.compose.material.icons.filled.ShuffleOn
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Divider
@@ -190,7 +193,12 @@ fun FeedDetailScreen(
                             }
                             Text(
                                 text = if (info.totalCount > 1) {
-                                    if (info.isRepeat) "循环播放" else "顺序播放"
+                                    when {
+                                        info.isShuffle && info.isRepeat -> "乱序循环"
+                                        info.isShuffle -> "乱序播放"
+                                        info.isRepeat -> "循环播放"
+                                        else -> "顺序播放"
+                                    }
                                 } else {
                                     "单曲播放"
                                 },
@@ -272,6 +280,81 @@ fun PlaylistDialog(
                 }
                 
                 Divider()
+                
+                // 播放控制按钮行
+                playlistInfo?.let { info ->
+                    if (info.totalCount > 1) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 8.dp),
+                            horizontalArrangement = Arrangement.Center,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            // 循环播放按钮
+                            IconButton(
+                                onClick = { playerViewModel.toggleRepeatMode() },
+                                modifier = Modifier
+                                    .size(40.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.PlaylistPlay,
+                                    contentDescription = "循环播放",
+                                    tint = if (info.isRepeat) {
+                                        MaterialTheme.colorScheme.primary
+                                    } else {
+                                        MaterialTheme.colorScheme.onSurfaceVariant
+                                    },
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                            
+                            // 循环模式文字标签
+                            Text(
+                                text = if (info.isRepeat) "循环" else "顺序",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = if (info.isRepeat) {
+                                    MaterialTheme.colorScheme.primary
+                                } else {
+                                    MaterialTheme.colorScheme.onSurfaceVariant
+                                }
+                            )
+                            
+                            Spacer(modifier = Modifier.width(24.dp))
+                            
+                            // 乱序播放按钮
+                            IconButton(
+                                onClick = { playerViewModel.toggleShuffleMode() },
+                                modifier = Modifier
+                                    .size(40.dp)
+                            ) {
+                                Icon(
+                                    imageVector = if (info.isShuffle) Icons.Default.ShuffleOn else Icons.Default.Shuffle,
+                                    contentDescription = "乱序播放",
+                                    tint = if (info.isShuffle) {
+                                        MaterialTheme.colorScheme.primary
+                                    } else {
+                                        MaterialTheme.colorScheme.onSurfaceVariant
+                                    },
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                            
+                            // 乱序模式文字标签
+                            Text(
+                                text = if (info.isShuffle) "乱序" else "顺序",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = if (info.isShuffle) {
+                                    MaterialTheme.colorScheme.primary
+                                } else {
+                                    MaterialTheme.colorScheme.onSurfaceVariant
+                                }
+                            )
+                        }
+                        
+                        Divider(modifier = Modifier.padding(horizontal = 16.dp))
+                    }
+                }
                 
                 // 播放列表内容
                 LazyColumn(

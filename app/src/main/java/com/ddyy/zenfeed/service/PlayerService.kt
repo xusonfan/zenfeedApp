@@ -40,7 +40,12 @@ class PlayerService : Service() {
         private set
     
     // 播放模式：false为顺序播放，true为循环播放
-    private var isRepeatMode = false
+    private var isRepeatMode = true
+    // 乱序播放模式：false为顺序播放，true为乱序播放
+    private var isShuffleMode = false
+    // 原始播放列表和乱序后的列表
+    private var originalPlaylist: List<Feed> = emptyList()
+    private var shuffledIndices: List<Int> = emptyList()
 
     private val handler = Handler(Looper.getMainLooper())
     private val progressUpdateRunnable = object : Runnable {
@@ -118,8 +123,15 @@ class PlayerService : Service() {
     }
 
     fun setPlaylist(feeds: List<Feed>, startIndex: Int) {
+        originalPlaylist = feeds
         playlist = feeds
         currentTrackIndex = startIndex
+        
+        // 如果是乱序模式，重新生成乱序索引
+        if (isShuffleMode) {
+            generateShuffledIndices(startIndex)
+        }
+        
         playCurrentTrack()
     }
 
@@ -284,7 +296,30 @@ class PlayerService : Service() {
                 return
             }
             
-            if (isRepeatMode) {
+            if (isShuffleMode) {
+                // 乱序模式
+                val currentShuffledIndex = shuffledIndices.indexOf(currentTrackIndex)
+                if (currentShuffledIndex != -1) {
+                    val nextShuffledIndex = if (isRepeatMode) {
+                        (currentShuffledIndex + 1) % shuffledIndices.size
+                    } else {
+                        if (currentShuffledIndex < shuffledIndices.size - 1) {
+                            currentShuffledIndex + 1
+                        } else {
+                            -1 // 已是最后一首
+                        }
+                    }
+                    
+                    if (nextShuffledIndex != -1) {
+                        currentTrackIndex = shuffledIndices[nextShuffledIndex]
+                        Log.d("PlayerService", "乱序模式，播放索引: $currentTrackIndex")
+                        playCurrentTrack()
+                    } else {
+                        Log.d("PlayerService", "乱序播放已是最后一首，播放结束")
+                        updatePlaybackState(PlaybackStateCompat.STATE_STOPPED)
+                    }
+                }
+            } else if (isRepeatMode) {
                 // 循环模式：播放到最后一首后回到第一首
                 currentTrackIndex = (currentTrackIndex + 1) % playlist.size
                 Log.d("PlayerService", "循环模式，播放索引: $currentTrackIndex")
@@ -314,7 +349,33 @@ class PlayerService : Service() {
                 return
             }
             
-            if (isRepeatMode) {
+            if (isShuffleMode) {
+                // 乱序模式
+                val currentShuffledIndex = shuffledIndices.indexOf(currentTrackIndex)
+                if (currentShuffledIndex != -1) {
+                    val prevShuffledIndex = if (isRepeatMode) {
+                        if (currentShuffledIndex > 0) {
+                            currentShuffledIndex - 1
+                        } else {
+                            shuffledIndices.size - 1
+                        }
+                    } else {
+                        if (currentShuffledIndex > 0) {
+                            currentShuffledIndex - 1
+                        } else {
+                            -1 // 已是第一首
+                        }
+                    }
+                    
+                    if (prevShuffledIndex != -1) {
+                        currentTrackIndex = shuffledIndices[prevShuffledIndex]
+                        Log.d("PlayerService", "乱序模式，播放索引: $currentTrackIndex")
+                        playCurrentTrack()
+                    } else {
+                        Log.d("PlayerService", "乱序播放已是第一首，无法播放上一首")
+                    }
+                }
+            } else if (isRepeatMode) {
                 // 循环模式：播放到第一首后回到最后一首
                 currentTrackIndex = if (currentTrackIndex > 0) currentTrackIndex - 1 else playlist.size - 1
                 Log.d("PlayerService", "循环模式，播放索引: $currentTrackIndex")
@@ -339,7 +400,22 @@ class PlayerService : Service() {
      */
     fun hasNextTrack(): Boolean {
         return try {
-            playlist.isNotEmpty() && currentTrackIndex >= 0 && currentTrackIndex < playlist.size - 1
+            if (playlist.isEmpty()) return false
+            
+            if (isShuffleMode) {
+                val currentShuffledIndex = shuffledIndices.indexOf(currentTrackIndex)
+                return if (isRepeatMode) {
+                    true // 循环模式总是有下一首
+                } else {
+                    currentShuffledIndex >= 0 && currentShuffledIndex < shuffledIndices.size - 1
+                }
+            } else {
+                return if (isRepeatMode) {
+                    true // 循环模式总是有下一首
+                } else {
+                    currentTrackIndex >= 0 && currentTrackIndex < playlist.size - 1
+                }
+            }
         } catch (e: Exception) {
             Log.e("PlayerService", "检查下一首时出错", e)
             false
@@ -351,7 +427,22 @@ class PlayerService : Service() {
      */
     fun hasPreviousTrack(): Boolean {
         return try {
-            playlist.isNotEmpty() && currentTrackIndex > 0 && currentTrackIndex < playlist.size
+            if (playlist.isEmpty()) return false
+            
+            if (isShuffleMode) {
+                val currentShuffledIndex = shuffledIndices.indexOf(currentTrackIndex)
+                return if (isRepeatMode) {
+                    true // 循环模式总是有上一首
+                } else {
+                    currentShuffledIndex > 0
+                }
+            } else {
+                return if (isRepeatMode) {
+                    true // 循环模式总是有上一首
+                } else {
+                    currentTrackIndex > 0 && currentTrackIndex < playlist.size
+                }
+            }
         } catch (e: Exception) {
             Log.e("PlayerService", "检查上一首时出错", e)
             false
@@ -371,6 +462,53 @@ class PlayerService : Service() {
      * 获取当前播放模式
      */
     fun isRepeatMode(): Boolean = isRepeatMode
+    
+    /**
+     * 设置乱序播放模式
+     * @param shuffle true为乱序播放，false为顺序播放
+     */
+    fun setShuffleMode(shuffle: Boolean) {
+        if (isShuffleMode != shuffle) {
+            isShuffleMode = shuffle
+            if (shuffle && playlist.isNotEmpty()) {
+                // 开启乱序模式，生成乱序索引
+                generateShuffledIndices(currentTrackIndex)
+            }
+            Log.d("PlayerService", "乱序播放模式设置为: ${if (shuffle) "乱序播放" else "顺序播放"}")
+        }
+    }
+    
+    /**
+     * 获取当前乱序播放模式
+     */
+    fun isShuffleMode(): Boolean = isShuffleMode
+    
+    /**
+     * 生成乱序播放索引，确保当前播放的歌曲位置保持不变
+     */
+    private fun generateShuffledIndices(currentIndex: Int) {
+        try {
+            if (playlist.isEmpty()) return
+            
+            val allIndices = (0 until playlist.size).toMutableList()
+            
+            // 如果当前有播放的歌曲，先移除当前索引
+            if (currentIndex >= 0 && currentIndex < playlist.size) {
+                allIndices.remove(currentIndex)
+                allIndices.shuffle()
+                // 将当前索引放在最前面
+                shuffledIndices = listOf(currentIndex) + allIndices
+            } else {
+                allIndices.shuffle()
+                shuffledIndices = allIndices
+            }
+            
+            Log.d("PlayerService", "生成乱序索引: $shuffledIndices")
+        } catch (e: Exception) {
+            Log.e("PlayerService", "生成乱序索引时出错", e)
+            shuffledIndices = (0 until playlist.size).toList()
+        }
+    }
     
     /**
      * 获取当前播放列表
@@ -403,7 +541,8 @@ class PlayerService : Service() {
             totalCount = playlist.size,
             hasNext = hasNextTrack(),
             hasPrevious = hasPreviousTrack(),
-            isRepeat = isRepeatMode
+            isRepeat = isRepeatMode,
+            isShuffle = isShuffleMode
         )
     }
 

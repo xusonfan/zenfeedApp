@@ -89,5 +89,6 @@ data class PlaylistInfo(
     val totalCount: Int,
     val hasNext: Boolean,
     val hasPrevious: Boolean,
-    val isRepeat: Boolean
+    val isRepeat: Boolean,
+    val isShuffle: Boolean
 )

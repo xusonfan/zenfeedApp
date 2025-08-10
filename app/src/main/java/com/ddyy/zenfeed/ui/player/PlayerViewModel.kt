@@ -5,13 +5,13 @@ import android.content.Context
 import android.content.Intent
 import android.content.ServiceConnection
 import android.os.IBinder
+import android.support.v4.media.session.PlaybackStateCompat
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
-import android.support.v4.media.session.PlaybackStateCompat
 import com.ddyy.zenfeed.data.Feed
 import com.ddyy.zenfeed.data.PlaylistInfo
 import com.ddyy.zenfeed.service.PlayerService
@@ -115,6 +115,20 @@ class PlayerViewModel : ViewModel() {
             }
         } catch (e: Exception) {
             android.util.Log.e("PlayerViewModel", "切换播放模式时出错", e)
+        }
+    }
+    
+    /**
+     * 切换乱序播放模式（顺序/乱序）
+     */
+    fun toggleShuffleMode() {
+        try {
+            playerService?.let { service ->
+                service.setShuffleMode(!service.isShuffleMode())
+                updatePlaylistInfo()
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("PlayerViewModel", "切换乱序播放模式时出错", e)
         }
     }
     
