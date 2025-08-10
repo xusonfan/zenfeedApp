@@ -119,6 +119,9 @@ fun FeedDetailScreen(
     val playlistInfo by playerViewModel.playlistInfo.observeAsState()
     var showPlaylistDialog by remember { mutableStateOf(false) }
     
+    // 用于接收滚动进度的状态
+    var scrollProgress by remember { mutableStateOf(0f) }
+    
     // HorizontalPager状态
     val pagerState = rememberPagerState(
         initialPage = initialFeedIndex.coerceIn(0, allFeeds.size - 1),
@@ -183,8 +186,13 @@ fun FeedDetailScreen(
             TopAppBar(
                 title = {
                     Column {
+                        // 根据滚动进度在来源和标题之间过渡
                         Text(
-                            text = currentFeed.labels.title,
+                            text = if (scrollProgress < 0.5f) {
+                                currentFeed.labels.source
+                            } else {
+                                currentFeed.labels.title
+                            },
                             style = MaterialTheme.typography.titleMedium,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
@@ -229,7 +237,10 @@ fun FeedDetailScreen(
                     playerViewModel = playerViewModel,
                     playlistInfo = playlistInfo,
                     showPlaylistDialog = showPlaylistDialog,
-                    onShowPlaylistDialog = { showPlaylistDialog = it }
+                    onShowPlaylistDialog = { showPlaylistDialog = it },
+                    onScrollProgressChanged = { progress ->
+                        scrollProgress = progress
+                    }
                 )
             }
         }
@@ -463,7 +474,8 @@ fun FeedDetailPage(
     playerViewModel: PlayerViewModel,
     playlistInfo: PlaylistInfo?,
     showPlaylistDialog: Boolean,
-    onShowPlaylistDialog: (Boolean) -> Unit
+    onShowPlaylistDialog: (Boolean) -> Unit,
+    onScrollProgressChanged: (Float) -> Unit = {}
 ) {
     // 滚动状态
     val listState = rememberLazyListState()
@@ -475,7 +487,7 @@ fun FeedDetailPage(
             val firstVisibleItemScrollOffset = listState.firstVisibleItemScrollOffset
             
             // 当滚动到第一个item（标题）之后开始过渡
-            val threshold = 100f // 滚动100px后开始过渡
+            val threshold = 200f // 滚动200px后开始过渡
             val progress = if (firstVisibleItemIndex == 0) {
                 min(firstVisibleItemScrollOffset / threshold, 1f)
             } else {
@@ -483,6 +495,11 @@ fun FeedDetailPage(
             }
             progress
         }
+    }
+    
+    // 当滚动进度变化时通知父组件
+    LaunchedEffect(scrollProgress) {
+        onScrollProgressChanged(scrollProgress)
     }
 
     LazyColumn(
