@@ -1,40 +1,24 @@
 package com.ddyy.zenfeed.ui.feeds
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.spring
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.scaleIn
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.staggeredgrid.LazyVerticalStaggeredGrid
+import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridCells
+import androidx.compose.foundation.lazy.staggeredgrid.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Article
 import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.ripple.rememberRipple
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
+import androidx.compose.runtime.Stable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
-import androidx.compose.foundation.lazy.staggeredgrid.LazyVerticalStaggeredGrid
-import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridCells
-import androidx.compose.foundation.lazy.staggeredgrid.items
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -47,173 +31,91 @@ import com.ddyy.zenfeed.data.Labels
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FeedItem(feed: Feed, onClick: () -> Unit, modifier: Modifier = Modifier) {
-    val interactionSource = remember { MutableInteractionSource() }
-    
-    // 紧凑型现代化卡片设计
+    // 简化卡片设计，减少重绘开销
     Card(
         onClick = onClick,
         modifier = modifier
-            .fillMaxWidth()
-            .padding(2.dp),
+            .fillMaxWidth(),
         elevation = CardDefaults.cardElevation(
-            defaultElevation = 6.dp,
-            pressedElevation = 8.dp,
-            hoveredElevation = 7.dp
+            defaultElevation = 4.dp, // 减少阴影计算
+            pressedElevation = 6.dp,
+            hoveredElevation = 5.dp
         ),
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(12.dp), // 简化圆角
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surface
-        ),
-        interactionSource = interactionSource
+        )
     ) {
-        // 渐变背景层
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(
-                    brush = Brush.verticalGradient(
-                        colors = listOf(
-                            MaterialTheme.colorScheme.surface,
-                            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f)
-                        )
-                    )
-                )
+        Column(
+            modifier = Modifier.padding(16.dp) // 统一内边距
         ) {
-            Column {
-                // 顶部来源信息区域 - 紧凑设计
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(
-                            brush = Brush.horizontalGradient(
-                                colors = listOf(
-                                    MaterialTheme.colorScheme.primary.copy(alpha = 0.08f),
-                                    MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.03f)
-                                )
-                            )
-                        )
-                        .padding(horizontal = 12.dp, vertical = 8.dp)
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        // 紧凑图标容器
-                        Box(
-                            modifier = Modifier
-                                .size(24.dp)
-                                .background(
-                                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
-                                    shape = CircleShape
-                                ),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = Icons.AutoMirrored.Filled.Article,
-                                contentDescription = "来源图标",
-                                modifier = Modifier.size(12.dp),
-                                tint = MaterialTheme.colorScheme.primary
-                            )
-                        }
-                        
-                        Spacer(modifier = Modifier.width(8.dp))
-                        
-                        Text(
-                            text = feed.labels.source,
-                            style = MaterialTheme.typography.labelMedium.copy(
-                                fontWeight = FontWeight.SemiBold,
-                                letterSpacing = 0.3.sp
-                            ),
-                            color = MaterialTheme.colorScheme.primary,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
+            // 来源信息区域 - 简化设计
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                // 简化图标
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.Article,
+                    contentDescription = "来源图标",
+                    modifier = Modifier.size(16.dp),
+                    tint = MaterialTheme.colorScheme.primary
+                )
+                
+                Spacer(modifier = Modifier.width(8.dp))
+                
+                Text(
+                    text = feed.labels.source,
+                    style = MaterialTheme.typography.labelMedium.copy(
+                        fontWeight = FontWeight.Medium
+                    ),
+                    color = MaterialTheme.colorScheme.primary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+            
+            Spacer(modifier = Modifier.height(8.dp))
+            
+            // 标题
+            Text(
+                text = feed.labels.title,
+                style = MaterialTheme.typography.titleMedium.copy(
+                    fontWeight = FontWeight.Bold
+                ),
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            
+            // 摘要内容处理
+            val displayContent = remember(feed.labels.summaryHtmlSnippet, feed.labels.summary) {
+                if (feed.labels.summaryHtmlSnippet.isNotBlank()) {
+                    feed.labels.summaryHtmlSnippet
+                        .replace(Regex("<[^>]*>"), "")
+                        .replace("&nbsp;", " ")
+                        .replace("&amp;", "&")
+                        .replace("&lt;", "<")
+                        .replace("&gt;", ">")
+                        .replace("&quot;", "\"")
+                        .replace("&#39;", "'")
+                        .trim()
+                } else {
+                    feed.labels.summary.trim()
                 }
-
-                // 主要内容区域 - 紧凑布局
-                Column(
-                    modifier = Modifier.padding(12.dp)
-                ) {
-                    // 标题 - 紧凑排版
-                    Text(
-                        text = feed.labels.title,
-                        style = MaterialTheme.typography.titleMedium.copy(
-                            fontWeight = FontWeight.Bold,
-                            lineHeight = 20.sp
-                        ),
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    
-                    // 动态显示摘要内容 - 优先使用 summaryHtmlSnippet，其次使用 summary
-                    val displayContent = if (feed.labels.summaryHtmlSnippet.isNotBlank()) {
-                        // 简单清理 HTML 标签并处理常见 HTML 实体
-                        feed.labels.summaryHtmlSnippet
-                            .replace(Regex("<[^>]*>"), "")
-                            .replace("&nbsp;", " ")
-                            .replace("&amp;", "&")
-                            .replace("&lt;", "<")
-                            .replace("&gt;", ">")
-                            .replace("&quot;", "\"")
-                            .replace("&#39;", "'")
-                            .trim()
-                    } else {
-                        feed.labels.summary.trim()
-                    }
-                    
-                    // 只在有实际内容时显示摘要和间距
-                    if (displayContent.isNotEmpty()) {
-                        Spacer(modifier = Modifier.height(6.dp))
-                        
-                        Text(
-                            text = displayContent,
-                            style = MaterialTheme.typography.bodyMedium.copy(
-                                lineHeight = 18.sp,
-                                letterSpacing = 0.1.sp
-                            ),
-                            maxLines = 4, // 增加到4行以显示更多内容
-                            overflow = TextOverflow.Ellipsis,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
-                        )
-                        
-                        Spacer(modifier = Modifier.height(8.dp))
-                        
-                        // 底部装饰线 - 小尺寸
-                        Box(
-                            modifier = Modifier
-                                .width(24.dp)
-                                .height(2.dp)
-                                .background(
-                                    brush = Brush.horizontalGradient(
-                                        colors = listOf(
-                                            MaterialTheme.colorScheme.primary,
-                                            MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)
-                                        )
-                                    ),
-                                    shape = RoundedCornerShape(1.dp)
-                                )
-                        )
-                    } else {
-                        // 如果没有摘要内容，只显示装饰线，减少间距
-                        Spacer(modifier = Modifier.height(4.dp))
-                        
-                        Box(
-                            modifier = Modifier
-                                .width(24.dp)
-                                .height(2.dp)
-                                .background(
-                                    brush = Brush.horizontalGradient(
-                                        colors = listOf(
-                                            MaterialTheme.colorScheme.primary,
-                                            MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)
-                                        )
-                                    ),
-                                    shape = RoundedCornerShape(1.dp)
-                                )
-                        )
-                    }
-                }
+            }
+            
+            // 显示摘要
+            if (displayContent.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(4.dp))
+                
+                Text(
+                    text = displayContent,
+                    style = MaterialTheme.typography.bodyMedium,
+                    maxLines = 3, // 减少行数
+                    overflow = TextOverflow.Ellipsis,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
         }
     }
@@ -222,37 +124,29 @@ fun FeedItem(feed: Feed, onClick: () -> Unit, modifier: Modifier = Modifier) {
 @Composable
 fun FeedsList(feeds: List<Feed>, onFeedClick: (Feed) -> Unit, modifier: Modifier = Modifier) {
     LazyVerticalStaggeredGrid(
-        columns = StaggeredGridCells.Adaptive(minSize = 180.dp), // 优化最小尺寸
+        columns = StaggeredGridCells.Adaptive(minSize = 200.dp), // 调整最小尺寸以减少重排
         modifier = modifier.fillMaxSize(),
-        contentPadding = PaddingValues(16.dp),
-        verticalItemSpacing = 16.dp,
-        horizontalArrangement = Arrangement.spacedBy(16.dp)
+        contentPadding = PaddingValues(12.dp), // 减少边距
+        verticalItemSpacing = 12.dp, // 减少间距
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        items(feeds) { feed ->
-            // 添加进入动画
-            AnimatedVisibility(
-                visible = true,
-                enter = fadeIn(
-                    animationSpec = tween(
-                        durationMillis = 600,
-                        easing = FastOutSlowInEasing
-                    )
-                ) + scaleIn(
-                    initialScale = 0.8f,
-                    animationSpec = spring(
-                        dampingRatio = Spring.DampingRatioLowBouncy,
-                        stiffness = Spring.StiffnessMedium
-                    )
-                )
-            ) {
-                FeedItem(feed = feed, onClick = { onFeedClick(feed) })
-            }
+        items(
+            items = feeds,
+            key = { feed -> "${feed.labels.title}-${feed.time}" }, // 添加唯一key避免重组
+            contentType = { "FeedItem" } // 添加contentType优化
+        ) { feed ->
+            // 移除动画以减少抖动
+            FeedItem(
+                feed = feed,
+                onClick = { onFeedClick(feed) }
+            )
         }
     }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
+@Stable
 fun FeedsScreen(
     feedsUiState: FeedsUiState,
     onFeedClick: (Feed) -> Unit,
