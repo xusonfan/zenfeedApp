@@ -9,6 +9,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.OpenInBrowser
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.SkipNext
@@ -30,7 +31,12 @@ import com.ddyy.zenfeed.ui.player.PlayerViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun FeedDetailScreen(feed: Feed, onBack: () -> Unit, modifier: Modifier = Modifier) {
+fun FeedDetailScreen(
+    feed: Feed,
+    onBack: () -> Unit,
+    onOpenWebView: (String, String) -> Unit = { _, _ -> },
+    modifier: Modifier = Modifier
+) {
     val playerViewModel: PlayerViewModel = viewModel()
     val context = LocalContext.current
     val isPlaying by playerViewModel.isPlaying.observeAsState(false)
@@ -70,7 +76,19 @@ fun FeedDetailScreen(feed: Feed, onBack: () -> Unit, modifier: Modifier = Modifi
                     IconButton(onClick = onBack) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back"
+                            contentDescription = "返回"
+                        )
+                    }
+                },
+                actions = {
+                    IconButton(
+                        onClick = {
+                            onOpenWebView(feed.labels.link, feed.labels.title)
+                        }
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.OpenInBrowser,
+                            contentDescription = "打开原网页"
                         )
                     }
                 }

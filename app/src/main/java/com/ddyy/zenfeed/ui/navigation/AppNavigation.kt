@@ -19,6 +19,7 @@ import com.ddyy.zenfeed.ui.feeds.FeedsScreen
 import com.ddyy.zenfeed.ui.feeds.FeedsViewModel
 import com.ddyy.zenfeed.ui.settings.SettingsScreen
 import com.ddyy.zenfeed.ui.settings.SettingsViewModel
+import com.ddyy.zenfeed.ui.webview.WebViewScreen
 
 @Composable
 fun AppNavigation() {
@@ -53,7 +54,24 @@ fun AppNavigation() {
         composable("feedDetail") {
             val feed = sharedViewModel.selectedFeed
             if (feed != null) {
-                FeedDetailScreen(feed = feed, onBack = { navController.popBackStack() })
+                FeedDetailScreen(
+                    feed = feed,
+                    onBack = { navController.popBackStack() },
+                    onOpenWebView = { url, title ->
+                        sharedViewModel.setWebViewData(url, title)
+                        navController.navigate("webview")
+                    }
+                )
+            }
+        }
+        composable("webview") {
+            val webViewData = sharedViewModel.webViewData
+            if (webViewData != null) {
+                WebViewScreen(
+                    url = webViewData.first,
+                    title = webViewData.second,
+                    onBack = { navController.popBackStack() }
+                )
             }
         }
         composable("settings") {
