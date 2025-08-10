@@ -63,3 +63,18 @@ fun ZenfeedTheme(
         content = content
     )
 }
+
+/**
+ * 根据主题模式字符串确定是否使用暗色主题
+ * @param themeMode 主题模式，可以是 "light", "dark", "system"
+ * @param isSystemDark 系统是否处于暗色模式
+ * @return 是否使用暗色主题
+ */
+fun shouldUseDarkTheme(themeMode: String, isSystemDark: Boolean): Boolean {
+    return when (themeMode) {
+        "light" -> false
+        "dark" -> true
+        "system" -> isSystemDark
+        else -> isSystemDark
+    }
+}

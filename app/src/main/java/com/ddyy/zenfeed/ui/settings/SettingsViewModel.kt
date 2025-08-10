@@ -3,6 +3,7 @@ package com.ddyy.zenfeed.ui.settings
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.ddyy.zenfeed.R
 import com.ddyy.zenfeed.data.SettingsDataStore
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -22,6 +23,7 @@ data class SettingsUiState(
     val proxyPort: Int = 8080,
     val proxyUsername: String = "",
     val proxyPassword: String = "",
+    val themeMode: String = "system",
     val isLoading: Boolean = false,
     val message: String = ""
 )
@@ -45,6 +47,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     private var currentInputProxyPort = 8080
     private var currentInputProxyUsername = ""
     private var currentInputProxyPassword = ""
+    private var currentThemeMode = "system"
     
     init {
         // 初始化时加载当前设置
@@ -74,7 +77,8 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                     proxyHost = proxyHost,
                     proxyPort = proxyPort,
                     proxyUsername = proxyUsername,
-                    proxyPassword = proxyPassword
+                    proxyPassword = proxyPassword,
+                    themeMode = settingsDataStore.themeMode.first()
                 )
                 
                 if (currentInputApiUrl.isEmpty()) {
@@ -97,6 +101,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                 if (currentInputProxyPassword.isEmpty()) {
                     currentInputProxyPassword = proxyPassword
                 }
+                currentThemeMode = settingsDataStore.themeMode.first()
             }
         }
     }
@@ -157,6 +162,14 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
      */
     fun updateProxyPassword(password: String) {
         currentInputProxyPassword = password
+    }
+    
+    /**
+     * 更新主题模式
+     * @param mode 主题模式，可以是 "light", "dark", "system"
+     */
+    fun updateThemeMode(mode: String) {
+        currentThemeMode = mode
     }
     
     /**
@@ -333,6 +346,26 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     }
     
     /**
+     * 保存主题设置
+     */
+    fun saveThemeSettings() {
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isLoading = true)
+            
+            try {
+                // 保存主题设置
+                settingsDataStore.saveThemeMode(currentThemeMode)
+                showMessage("主题设置已保存")
+                
+            } catch (e: Exception) {
+                showMessage("保存主题设置失败：${e.message}")
+            } finally {
+                _uiState.value = _uiState.value.copy(isLoading = false)
+            }
+        }
+    }
+    
+    /**
      * 重置所有设置到默认值
      */
     fun resetAllSettings() {
@@ -349,6 +382,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                 currentInputProxyPort = SettingsDataStore.DEFAULT_PROXY_PORT
                 currentInputProxyUsername = SettingsDataStore.DEFAULT_PROXY_USERNAME
                 currentInputProxyPassword = SettingsDataStore.DEFAULT_PROXY_PASSWORD
+                currentThemeMode = SettingsDataStore.DEFAULT_THEME_MODE
                 showMessage("已重置为默认设置")
                 
             } catch (e: Exception) {

@@ -1,3 +1,19 @@
 <resources>
     <string name="app_name">zenfeed</string>
+    
+    <!-- 主题设置 -->
+    <string name="theme_settings">主题设置</string>
+    <string name="theme_settings_description">选择应用的主题模式</string>
+    <string name="theme_mode_light">日间模式</string>
+    <string name="theme_mode_dark">夜间模式</string>
+    <string name="theme_mode_system">跟随系统</string>
+    <string name="theme_current_mode">当前主题模式：</string>
+    <string name="theme_saved">主题设置已保存</string>
+    <string name="theme_save_failed">保存主题设置失败：</string>
+    
+    <!-- 通用 -->
+    <string name="reset">重置</string>
+    <string name="save">保存</string>
+    <string name="settings">设置</string>
+    <string name="back">返回</string>
 </resources>

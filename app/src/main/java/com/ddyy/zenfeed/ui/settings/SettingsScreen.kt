@@ -14,13 +14,18 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
+import com.ddyy.zenfeed.R
 import com.ddyy.zenfeed.data.SettingsDataStore
+import com.ddyy.zenfeed.ui.theme.ThemeController
+import com.ddyy.zenfeed.ui.theme.rememberThemeController
+import com.ddyy.zenfeed.ui.theme.restartActivity
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -52,7 +57,7 @@ fun SettingsScreen(
             CenterAlignedTopAppBar(
                 title = { 
                     Text(
-                        text = "设置",
+                        text = stringResource(R.string.settings),
                         style = MaterialTheme.typography.headlineMedium.copy(
                             fontWeight = FontWeight.Bold
                         )
@@ -62,7 +67,7 @@ fun SettingsScreen(
                     IconButton(onClick = { navController.navigateUp() }) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "返回"
+                            contentDescription = stringResource(R.string.back)
                         )
                     }
                 },
@@ -90,6 +95,14 @@ fun SettingsScreen(
                 onBackendUrlChange = settingsViewModel::updateBackendUrl,
                 onSaveAll = settingsViewModel::saveAllSettings,
                 onReset = settingsViewModel::resetAllSettings
+            )
+            
+            // 主题设置卡片
+            ThemeSettingCard(
+                currentThemeMode = uiState.themeMode,
+                isLoading = uiState.isLoading,
+                onThemeModeChange = settingsViewModel::updateThemeMode,
+                onSaveTheme = settingsViewModel::saveThemeSettings
             )
             
             // 代理设置卡片
@@ -214,7 +227,7 @@ private fun ApiUrlSettingCard(
                         modifier = Modifier.size(18.dp)
                     )
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("重置")
+                    Text(stringResource(R.string.reset))
                 }
                 
                 // 保存按钮
@@ -241,7 +254,7 @@ private fun ApiUrlSettingCard(
                             modifier = Modifier.size(18.dp)
                         )
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text("保存")
+                        Text(stringResource(R.string.save))
                     }
                 }
             }
@@ -532,6 +545,205 @@ private fun ProxySettingCard(
                         )
                     }
                 }
+            }
+        }
+    }
+}
+
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ThemeSettingCard(
+    currentThemeMode: String,
+    isLoading: Boolean,
+    onThemeModeChange: (String) -> Unit,
+    onSaveTheme: () -> Unit
+) {
+    var tempThemeMode by remember(currentThemeMode) { mutableStateOf(currentThemeMode) }
+    val hasChanges = tempThemeMode != currentThemeMode
+    
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        ),
+        shape = RoundedCornerShape(16.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            // 卡片标题
+            Text(
+                text = "主题设置",
+                style = MaterialTheme.typography.titleLarge.copy(
+                    fontWeight = FontWeight.Bold
+                ),
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            
+            Text(
+                text = "选择应用的主题模式",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            
+            // 主题模式选择
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                // 日间模式
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        RadioButton(
+                            selected = tempThemeMode == "light",
+                            onClick = { tempThemeMode = "light" },
+                            enabled = !isLoading
+                        )
+                        Text(
+                            text = "日间模式",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+                }
+                
+                // 夜间模式
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        RadioButton(
+                            selected = tempThemeMode == "dark",
+                            onClick = { tempThemeMode = "dark" },
+                            enabled = !isLoading
+                        )
+                        Text(
+                            text = "夜间模式",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+                }
+                
+                // 跟随系统
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        RadioButton(
+                            selected = tempThemeMode == "system",
+                            onClick = { tempThemeMode = "system" },
+                            enabled = !isLoading
+                        )
+                        Text(
+                            text = "跟随系统",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+                }
+            }
+            
+            // 按钮行
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                // 重置按钮
+                OutlinedButton(
+                    onClick = {
+                        tempThemeMode = SettingsDataStore.DEFAULT_THEME_MODE
+                        onThemeModeChange(SettingsDataStore.DEFAULT_THEME_MODE)
+                    },
+                    modifier = Modifier.weight(1f),
+                    enabled = !isLoading,
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        contentColor = MaterialTheme.colorScheme.error
+                    ),
+                    border = androidx.compose.foundation.BorderStroke(
+                        1.dp,
+                        MaterialTheme.colorScheme.error
+                    )
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Restore,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("重置")
+                }
+                
+                // 保存按钮
+                FilledTonalButton(
+                    onClick = {
+                        onThemeModeChange(tempThemeMode)
+                        onSaveTheme()
+                    },
+                    modifier = Modifier.weight(1f),
+                    enabled = !isLoading && hasChanges,
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    if (isLoading) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(18.dp),
+                            strokeWidth = 2.dp,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
+                    } else {
+                        Icon(
+                            imageVector = Icons.Default.Save,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("保存")
+                    }
+                }
+            }
+            
+            // 当前主题模式显示
+            Divider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
+            
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    text = "当前主题模式：",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Text(
+                    text = when (currentThemeMode) {
+                        "light" -> "日间模式"
+                        "dark" -> "夜间模式"
+                        "system" -> "跟随系统"
+                        else -> "未知"
+                    },
+                    style = MaterialTheme.typography.bodyMedium.copy(
+                        fontWeight = FontWeight.Medium
+                    ),
+                    color = MaterialTheme.colorScheme.primary
+                )
             }
         }
     }

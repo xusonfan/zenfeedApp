@@ -30,6 +30,7 @@ class SettingsDataStore(private val context: Context) {
         private val PROXY_PORT_KEY = intPreferencesKey("proxy_port")
         private val PROXY_USERNAME_KEY = stringPreferencesKey("proxy_username")
         private val PROXY_PASSWORD_KEY = stringPreferencesKey("proxy_password")
+        private val THEME_MODE_KEY = stringPreferencesKey("theme_mode")
         
         // 默认的API地址
         const val DEFAULT_API_BASE_URL = "https://zenfeed.xyz/"
@@ -42,6 +43,9 @@ class SettingsDataStore(private val context: Context) {
         const val DEFAULT_PROXY_PORT = 8080
         const val DEFAULT_PROXY_USERNAME = ""
         const val DEFAULT_PROXY_PASSWORD = ""
+        
+        // 默认的主题设置
+        const val DEFAULT_THEME_MODE = "system" // 可以是 "light", "dark", "system"
     }
     
     /**
@@ -109,9 +113,17 @@ class SettingsDataStore(private val context: Context) {
         .map { preferences ->
             preferences[PROXY_PASSWORD_KEY] ?: DEFAULT_PROXY_PASSWORD
         }
-    
-    /**
-     * 保存API基础地址
+        
+        /**
+         * 获取主题模式的Flow
+         */
+        val themeMode: Flow<String> = context.settingsDataStore.data
+            .map { preferences ->
+                preferences[THEME_MODE_KEY] ?: DEFAULT_THEME_MODE
+            }
+        
+        /**
+         * 保存API基础地址
      * @param url 要保存的API基础地址
      */
     suspend fun saveApiBaseUrl(url: String) {
@@ -148,6 +160,16 @@ class SettingsDataStore(private val context: Context) {
             preferences[PROXY_PORT_KEY] = port
             preferences[PROXY_USERNAME_KEY] = username
             preferences[PROXY_PASSWORD_KEY] = password
+        }
+    }
+    
+    /**
+     * 保存主题设置
+     * @param mode 主题模式，可以是 "light", "dark", "system"
+     */
+    suspend fun saveThemeMode(mode: String) {
+        context.settingsDataStore.edit { preferences ->
+            preferences[THEME_MODE_KEY] = mode
         }
     }
     
@@ -189,6 +211,7 @@ class SettingsDataStore(private val context: Context) {
             preferences[PROXY_PORT_KEY] = DEFAULT_PROXY_PORT
             preferences[PROXY_USERNAME_KEY] = DEFAULT_PROXY_USERNAME
             preferences[PROXY_PASSWORD_KEY] = DEFAULT_PROXY_PASSWORD
+            preferences[THEME_MODE_KEY] = DEFAULT_THEME_MODE
         }
     }
     
