@@ -31,6 +31,10 @@ class FeedsViewModel(application: Application) : AndroidViewModel(application) {
     var isRefreshing: Boolean by mutableStateOf(false)
         private set
     
+    // 背景刷新状态（用于在有缓存数据时显示顶部刷新指示器）
+    var isBackgroundRefreshing: Boolean by mutableStateOf(false)
+        private set
+    
     // 原始的完整Feed列表
     private var allFeeds: List<Feed> = emptyList()
     
@@ -39,22 +43,55 @@ class FeedsViewModel(application: Application) : AndroidViewModel(application) {
         private set
 
     init {
+        loadCachedFeeds()
         getFeeds()
     }
 
     /**
-     * 获取Feed列表
+     * 加载缓存的Feed列表（应用启动时调用）
+     */
+    private fun loadCachedFeeds() {
+        viewModelScope.launch {
+            feedsUiState = FeedsUiState.Loading
+            val cachedFeeds = feedRepository.getCachedFeeds()
+            if (cachedFeeds != null && cachedFeeds.isNotEmpty()) {
+                allFeeds = cachedFeeds
+                updateFilteredFeeds()
+                android.util.Log.d("FeedsViewModel", "已加载缓存数据，共 ${cachedFeeds.size} 条")
+            }
+        }
+    }
+    
+    /**
+     * 获取Feed列表（从网络获取新数据）
      */
     fun getFeeds() {
         viewModelScope.launch {
-            feedsUiState = FeedsUiState.Loading
-            val result = feedRepository.getFeeds()
-            if (result.isSuccess) {
-                allFeeds = result.getOrNull()?.feeds ?: emptyList()
-                updateFilteredFeeds()
+            // 如果当前没有数据，显示加载状态
+            if (allFeeds.isEmpty()) {
+                feedsUiState = FeedsUiState.Loading
             } else {
-                feedsUiState = FeedsUiState.Error
+                // 如果有缓存数据，显示背景刷新状态
+                isBackgroundRefreshing = true
             }
+            
+            val result = feedRepository.getFeeds(useCache = false) // 强制从网络获取
+            if (result.isSuccess) {
+                val newFeeds = result.getOrNull()?.feeds ?: emptyList()
+                if (newFeeds != allFeeds) { // 只有数据不同时才更新
+                    allFeeds = newFeeds
+                    updateFilteredFeeds()
+                    android.util.Log.d("FeedsViewModel", "已更新网络数据，共 ${newFeeds.size} 条")
+                }
+            } else {
+                // 如果网络获取失败但有缓存数据，不改变当前状态
+                if (allFeeds.isEmpty()) {
+                    feedsUiState = FeedsUiState.Error
+                }
+            }
+            
+            // 关闭背景刷新状态
+            isBackgroundRefreshing = false
         }
     }
     
@@ -64,12 +101,17 @@ class FeedsViewModel(application: Application) : AndroidViewModel(application) {
     fun refreshFeeds() {
         viewModelScope.launch {
             isRefreshing = true
-            val result = feedRepository.getFeeds()
+            val result = feedRepository.getFeeds(useCache = false) // 强制从网络获取
             if (result.isSuccess) {
-                allFeeds = result.getOrNull()?.feeds ?: emptyList()
+                val newFeeds = result.getOrNull()?.feeds ?: emptyList()
+                allFeeds = newFeeds
                 updateFilteredFeeds()
+                android.util.Log.d("FeedsViewModel", "刷新完成，共 ${newFeeds.size} 条")
             } else {
-                feedsUiState = FeedsUiState.Error
+                // 刷新失败时保持当前数据不变
+                if (allFeeds.isEmpty()) {
+                    feedsUiState = FeedsUiState.Error
+                }
             }
             isRefreshing = false
         }

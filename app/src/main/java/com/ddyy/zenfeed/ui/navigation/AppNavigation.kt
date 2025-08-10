@@ -36,6 +36,7 @@ fun AppNavigation() {
                 feedsUiState = feedsViewModel.feedsUiState,
                 selectedCategory = feedsViewModel.selectedCategory,
                 isRefreshing = feedsViewModel.isRefreshing,
+                isBackgroundRefreshing = feedsViewModel.isBackgroundRefreshing,
                 onFeedClick = { feed ->
                     sharedViewModel.selectFeed(feed)
                     navController.navigate("feedDetail")

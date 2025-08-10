@@ -262,6 +262,7 @@ fun FeedsScreen(
     feedsUiState: FeedsUiState,
     selectedCategory: String,
     isRefreshing: Boolean,
+    isBackgroundRefreshing: Boolean = false,
     onFeedClick: (Feed) -> Unit,
     onCategorySelected: (String) -> Unit,
     onRefresh: () -> Unit,
@@ -279,48 +280,59 @@ fun FeedsScreen(
     Scaffold(
         modifier = modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
-            // 现代化的顶部应用栏
-            CenterAlignedTopAppBar(
-                title = {
-                    Text(
-                        text = "Zenfeed",
-                        style = MaterialTheme.typography.headlineMedium.copy(
-                            fontWeight = FontWeight.ExtraBold,
-                            letterSpacing = 1.sp
-                        ),
-                        color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.clickable(
-                            indication = null,
-                            interactionSource = remember { MutableInteractionSource() }
-                        ) {
-                            val currentTime = System.currentTimeMillis()
-                            if (currentTime - lastClickTime <= doubleTapThreshold) {
-                                // 双击事件：滚动到顶部
-                                coroutineScope.launch {
-                                    listState.animateScrollToItem(0)
+            Column {
+                // 现代化的顶部应用栏
+                CenterAlignedTopAppBar(
+                    title = {
+                        Text(
+                            text = "Zenfeed",
+                            style = MaterialTheme.typography.headlineMedium.copy(
+                                fontWeight = FontWeight.ExtraBold,
+                                letterSpacing = 1.sp
+                            ),
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.clickable(
+                                indication = null,
+                                interactionSource = remember { MutableInteractionSource() }
+                            ) {
+                                val currentTime = System.currentTimeMillis()
+                                if (currentTime - lastClickTime <= doubleTapThreshold) {
+                                    // 双击事件：滚动到顶部
+                                    coroutineScope.launch {
+                                        listState.animateScrollToItem(0)
+                                    }
+                                    lastClickTime = 0L // 重置时间避免三击
+                                } else {
+                                    lastClickTime = currentTime
                                 }
-                                lastClickTime = 0L // 重置时间避免三击
-                            } else {
-                                lastClickTime = currentTime
                             }
-                        }
-                    )
-                },
-                actions = {
-                    IconButton(onClick = onSettingsClick) {
-                        Icon(
-                            imageVector = Icons.Default.Settings,
-                            contentDescription = "设置",
-                            tint = MaterialTheme.colorScheme.onSurface
                         )
-                    }
-                },
-                scrollBehavior = scrollBehavior,
-                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f),
-                    scrolledContainerColor = MaterialTheme.colorScheme.surface
+                    },
+                    actions = {
+                        IconButton(onClick = onSettingsClick) {
+                            Icon(
+                                imageVector = Icons.Default.Settings,
+                                contentDescription = "设置",
+                                tint = MaterialTheme.colorScheme.onSurface
+                            )
+                        }
+                    },
+                    scrollBehavior = scrollBehavior,
+                    colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
+                        containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f),
+                        scrolledContainerColor = MaterialTheme.colorScheme.surface
+                    )
                 )
-            )
+                
+                // 背景刷新进度条
+                if (isBackgroundRefreshing) {
+                    LinearProgressIndicator(
+                        modifier = Modifier.fillMaxWidth(),
+                        color = MaterialTheme.colorScheme.primary,
+                        trackColor = MaterialTheme.colorScheme.surface
+                    )
+                }
+            }
         },
         containerColor = MaterialTheme.colorScheme.background
     ) { innerPadding ->
