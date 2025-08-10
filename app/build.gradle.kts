@@ -51,6 +51,7 @@ dependencies {
     implementation(libs.androidx.material3)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.androidx.material.icons.extended)
+    implementation(libs.androidx.navigation.compose)
 
     // Retrofit 和 OkHttp 用于网络请求
     implementation("com.squareup.retrofit2:retrofit:2.9.0")
