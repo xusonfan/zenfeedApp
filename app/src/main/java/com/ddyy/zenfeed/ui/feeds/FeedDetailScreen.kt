@@ -2,7 +2,6 @@ package com.ddyy.zenfeed.ui.feeds
 
 import android.webkit.WebView
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
@@ -26,6 +25,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.PlaylistPlay
@@ -58,7 +59,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -69,57 +69,71 @@ import androidx.compose.ui.window.Dialog
 import androidx.core.graphics.toColorInt
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.ddyy.zenfeed.data.Feed
+import com.ddyy.zenfeed.data.PlaylistInfo
 import com.ddyy.zenfeed.ui.player.PlayerViewModel
 import kotlin.math.min
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FeedDetailScreen(
-    feed: Feed,
+    allFeeds: List<Feed>,
+    initialFeedIndex: Int = 0,
     onBack: () -> Unit,
     onOpenWebView: (String, String) -> Unit = { _, _ -> },
     onPlayPodcastList: ((List<Feed>, Int) -> Unit)? = null,
-    allFeeds: List<Feed> = emptyList(),
+    onFeedChanged: (Feed) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
+    // 如果没有feeds数据，显示空状态
+    if (allFeeds.isEmpty()) {
+        Scaffold(
+            topBar = {
+                TopAppBar(
+                    title = { Text("文章详情") },
+                    navigationIcon = {
+                        IconButton(onClick = onBack) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                contentDescription = "返回"
+                            )
+                        }
+                    }
+                )
+            }
+        ) { innerPadding ->
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding),
+                contentAlignment = Alignment.Center
+            ) {
+                Text("没有可显示的文章")
+            }
+        }
+        return
+    }
+
     val playerViewModel: PlayerViewModel = viewModel()
     val context = LocalContext.current
     val isPlaying by playerViewModel.isPlaying.observeAsState(false)
     val playlistInfo by playerViewModel.playlistInfo.observeAsState()
     var showPlaylistDialog by remember { mutableStateOf(false) }
     
-    // 滚动状态
-    val listState = rememberLazyListState()
+    // HorizontalPager状态
+    val pagerState = rememberPagerState(
+        initialPage = initialFeedIndex.coerceIn(0, allFeeds.size - 1),
+        pageCount = { allFeeds.size }
+    )
     
-    // 计算滚动进度（用于顶栏过渡效果）
-    val scrollProgress by remember {
-        derivedStateOf {
-            val firstVisibleItemIndex = listState.firstVisibleItemIndex
-            val firstVisibleItemScrollOffset = listState.firstVisibleItemScrollOffset
-            
-            // 当滚动到第一个item（标题）之后开始过渡
-            val threshold = 100f // 滚动100px后开始过渡
-            val progress = if (firstVisibleItemIndex == 0) {
-                min(firstVisibleItemScrollOffset / threshold, 1f)
-            } else {
-                1f
-            }
-            progress
+    // 当前显示的Feed
+    val currentFeed = allFeeds[pagerState.currentPage]
+    
+    // 监听页面变化，通知父组件当前Feed已改变
+    LaunchedEffect(pagerState.currentPage) {
+        if (pagerState.currentPage < allFeeds.size) {
+            onFeedChanged(allFeeds[pagerState.currentPage])
         }
     }
-    
-    // 动画化的透明度
-    val sourceAlpha by animateFloatAsState(
-        targetValue = 1f - scrollProgress,
-        animationSpec = tween(300),
-        label = "sourceAlpha"
-    )
-    
-    val titleAlpha by animateFloatAsState(
-        targetValue = scrollProgress,
-        animationSpec = tween(300),
-        label = "titleAlpha"
-    )
 
     DisposableEffect(Unit) {
         playerViewModel.bindService(context)
@@ -135,25 +149,24 @@ fun FeedDetailScreen(
                 horizontalAlignment = Alignment.End,
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-
                 // 主播放按钮
                 FloatingActionButton(onClick = {
                     playerViewModel.playerService?.let {
                         if (isPlaying) {
                             it.pause()
                         } else {
-                            if (it.isSameTrack(feed.labels.podcastUrl)) {
+                            if (it.isSameTrack(currentFeed.labels.podcastUrl)) {
                                 it.resume()
                             } else {
                                 // 优先使用播放列表功能，如果没有提供则使用单曲播放
-                                if (onPlayPodcastList != null && allFeeds.isNotEmpty()) {
+                                if (onPlayPodcastList != null) {
                                     // 使用全部feeds作为播放列表，从当前feed开始播放
                                     val currentIndex = allFeeds.indexOfFirst {
-                                        it.labels.podcastUrl == feed.labels.podcastUrl && feed.labels.podcastUrl.isNotBlank()
-                                    }.takeIf { it >= 0 } ?: allFeeds.indexOf(feed).takeIf { it >= 0 } ?: 0
+                                        it.labels.podcastUrl == currentFeed.labels.podcastUrl && currentFeed.labels.podcastUrl.isNotBlank()
+                                    }.takeIf { it >= 0 } ?: pagerState.currentPage
                                     onPlayPodcastList(allFeeds, currentIndex)
                                 } else {
-                                    it.play(feed)
+                                    it.play(currentFeed)
                                 }
                             }
                         }
@@ -164,25 +177,22 @@ fun FeedDetailScreen(
                         contentDescription = if (isPlaying) "暂停" else "播放"
                     )
                 }
-
             }
         },
         topBar = {
             TopAppBar(
                 title = {
-                    Box {
-                        // 来源文字
+                    Column {
                         Text(
-                            text = feed.labels.source,
-                            modifier = Modifier.alpha(sourceAlpha)
-                        )
-                        // 文章标题
-                        Text(
-                            text = feed.labels.title,
+                            text = currentFeed.labels.title,
                             style = MaterialTheme.typography.titleMedium,
                             maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.alpha(titleAlpha)
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Text(
+                            text = "${pagerState.currentPage + 1} / ${allFeeds.size}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 },
@@ -197,7 +207,7 @@ fun FeedDetailScreen(
                 actions = {
                     IconButton(
                         onClick = {
-                            onOpenWebView(feed.labels.link, feed.labels.title)
+                            onOpenWebView(currentFeed.labels.link, currentFeed.labels.title)
                         }
                     ) {
                         Icon(
@@ -209,111 +219,19 @@ fun FeedDetailScreen(
             )
         }
     ) { innerPadding ->
-        LazyColumn(
-            state = listState,
-            modifier = modifier
-                .padding(innerPadding)
-                .fillMaxSize(),
-            contentPadding = PaddingValues(
-                start = 16.dp,
-                end = 16.dp,
-                bottom = 16.dp
-            )
-        ) {
-            // 文章标题
-            item {
-                Text(
-                    text = feed.labels.title,
-                    style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
-                    modifier = Modifier.padding(top = 16.dp)
+        HorizontalPager(
+            state = pagerState,
+            modifier = modifier.padding(innerPadding)
+        ) { page ->
+            if (page < allFeeds.size) {
+                FeedDetailPage(
+                    feed = allFeeds[page],
+                    playerViewModel = playerViewModel,
+                    playlistInfo = playlistInfo,
+                    showPlaylistDialog = showPlaylistDialog,
+                    onShowPlaylistDialog = { showPlaylistDialog = it }
                 )
             }
-            
-            // 发布时间
-            item {
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = "发布于: ${feed.formattedTime}",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = Color.Gray
-                )
-            }
-            
-            // 播放列表信息 - 使用动画避免闪烁
-            item {
-                AnimatedVisibility(
-                    visible = playlistInfo != null && (playlistInfo?.totalCount ?: 0) >= 1,
-                    enter = fadeIn(animationSpec = tween(300)) + expandVertically(animationSpec = tween(300)),
-                    exit = fadeOut(animationSpec = tween(300)) + shrinkVertically(animationSpec = tween(300))
-                ) {
-                    playlistInfo?.let { info ->
-                        Column {
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Card(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clickable { showPlaylistDialog = true },
-                                colors = CardDefaults.cardColors(
-                                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-                                )
-                            ) {
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(12.dp),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Row(
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.AutoMirrored.Filled.PlaylistPlay,
-                                            contentDescription = "播放列表",
-                                            tint = MaterialTheme.colorScheme.primary,
-                                            modifier = Modifier.size(20.dp)
-                                        )
-                                        Text(
-                                            text = if (info.totalCount > 1) "播放列表: ${info.currentIndex + 1}/${info.totalCount}" else "正在播放",
-                                            style = MaterialTheme.typography.bodyMedium,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                                        )
-                                    }
-                                    Text(
-                                        text = if (info.totalCount > 1) {
-                                            when {
-                                                info.isShuffle && info.isRepeat -> "乱序循环"
-                                                info.isShuffle -> "乱序播放"
-                                                info.isRepeat -> "循环播放"
-                                                else -> "顺序播放"
-                                            }
-                                        } else {
-                                            "单曲播放"
-                                        },
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.primary
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-            
-            // 文章内容
-            item {
-                Spacer(modifier = Modifier.height(16.dp))
-                HtmlText(html = feed.labels.summaryHtmlSnippet)
-            }
-        }
-        
-        // 播放列表弹窗
-        if (showPlaylistDialog) {
-            PlaylistDialog(
-                playerViewModel = playerViewModel,
-                onDismiss = { showPlaylistDialog = false }
-            )
         }
     }
 }
@@ -536,6 +454,140 @@ fun PlaylistDialog(
                 }
             }
         }
+    }
+}
+
+@Composable
+fun FeedDetailPage(
+    feed: Feed,
+    playerViewModel: PlayerViewModel,
+    playlistInfo: PlaylistInfo?,
+    showPlaylistDialog: Boolean,
+    onShowPlaylistDialog: (Boolean) -> Unit
+) {
+    // 滚动状态
+    val listState = rememberLazyListState()
+    
+    // 计算滚动进度（用于顶栏过渡效果）
+    val scrollProgress by remember {
+        derivedStateOf {
+            val firstVisibleItemIndex = listState.firstVisibleItemIndex
+            val firstVisibleItemScrollOffset = listState.firstVisibleItemScrollOffset
+            
+            // 当滚动到第一个item（标题）之后开始过渡
+            val threshold = 100f // 滚动100px后开始过渡
+            val progress = if (firstVisibleItemIndex == 0) {
+                min(firstVisibleItemScrollOffset / threshold, 1f)
+            } else {
+                1f
+            }
+            progress
+        }
+    }
+
+    LazyColumn(
+        state = listState,
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(
+            start = 16.dp,
+            end = 16.dp,
+            bottom = 16.dp
+        )
+    ) {
+        // 文章标题
+        item {
+            Text(
+                text = feed.labels.title,
+                style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
+                modifier = Modifier.padding(top = 16.dp)
+            )
+        }
+        
+        // 来源和发布时间
+        item {
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = "${feed.labels.source} • 发布于: ${feed.formattedTime}",
+                style = MaterialTheme.typography.labelMedium,
+                color = Color.Gray
+            )
+        }
+        
+        // 播放列表信息 - 使用动画避免闪烁
+        item {
+            AnimatedVisibility(
+                visible = playlistInfo != null && (playlistInfo?.totalCount ?: 0) >= 1,
+                enter = fadeIn(animationSpec = tween(300)) + expandVertically(animationSpec = tween(300)),
+                exit = fadeOut(animationSpec = tween(300)) + shrinkVertically(animationSpec = tween(300))
+            ) {
+                playlistInfo?.let { info ->
+                    Column {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { onShowPlaylistDialog(true) },
+                            colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                            )
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(12.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.AutoMirrored.Filled.PlaylistPlay,
+                                        contentDescription = "播放列表",
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                    Text(
+                                        text = if (info.totalCount > 1) "播放列表: ${info.currentIndex + 1}/${info.totalCount}" else "正在播放",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                                Text(
+                                    text = if (info.totalCount > 1) {
+                                        when {
+                                            info.isShuffle && info.isRepeat -> "乱序循环"
+                                            info.isShuffle -> "乱序播放"
+                                            info.isRepeat -> "循环播放"
+                                            else -> "顺序播放"
+                                        }
+                                    } else {
+                                        "单曲播放"
+                                    },
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
+        // 文章内容
+        item {
+            Spacer(modifier = Modifier.height(16.dp))
+            HtmlText(html = feed.labels.summaryHtmlSnippet)
+        }
+    }
+    
+    // 播放列表弹窗
+    if (showPlaylistDialog) {
+        PlaylistDialog(
+            playerViewModel = playerViewModel,
+            onDismiss = { onShowPlaylistDialog(false) }
+        )
     }
 }
 

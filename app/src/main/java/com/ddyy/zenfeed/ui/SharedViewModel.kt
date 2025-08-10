@@ -16,6 +16,10 @@ class SharedViewModel : ViewModel() {
     var allFeeds by mutableStateOf<List<Feed>>(emptyList())
         private set
     
+    // 当前选中的feed在allFeeds中的索引
+    var selectedFeedIndex by mutableStateOf(0)
+        private set
+    
     var webViewData by mutableStateOf<Pair<String, String>?>(null)
         private set
     
@@ -25,6 +29,8 @@ class SharedViewModel : ViewModel() {
 
     fun selectFeed(feed: Feed) {
         selectedFeed = feed
+        // 更新当前选中feed的索引
+        selectedFeedIndex = allFeeds.indexOfFirst { it == feed }.coerceAtLeast(0)
     }
     
     /**
@@ -84,5 +90,26 @@ class SharedViewModel : ViewModel() {
         )
         
         selectedFeed = feed
+    }
+    
+    /**
+     * 根据索引选择Feed
+     */
+    fun selectFeedByIndex(index: Int) {
+        if (index >= 0 && index < allFeeds.size) {
+            selectedFeedIndex = index
+            selectedFeed = allFeeds[index]
+        }
+    }
+    
+    /**
+     * 获取当前选中Feed在allFeeds中的索引
+     */
+    fun getCurrentFeedIndex(): Int {
+        return if (selectedFeed != null) {
+            allFeeds.indexOfFirst { it == selectedFeed }.coerceAtLeast(0)
+        } else {
+            0
+        }
     }
 }
