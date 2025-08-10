@@ -552,38 +552,82 @@ fun HtmlText(html: String, modifier: Modifier = Modifier) {
                     <head>
                         <style>
                             body {
-                                background-color: #1E1E1E;
-                                color: #E0E0E0;
+                                background-color: #1E1E1E !important;
+                                color: #E0E0E0 !important;
                                 font-family: sans-serif;
                                 line-height: 1.6;
+                                margin: 0;
+                                padding: 12px;
                             }
+                            
+                            /* 链接样式 */
                             a {
-                                color: #BB86FC;
+                                color: #BB86FC !important;
+                                text-decoration: underline;
                             }
+                            a:visited {
+                                color: #CE93D8 !important;
+                            }
+                            
+                            /* 图片样式 */
                             img {
                                 max-width: 100%;
                                 height: auto;
-                                filter: brightness(0.7) contrast(0.8);
-                                opacity: 0.85;
-                                border-radius: 4px;
+                                border-radius: 8px;
+                                margin: 8px 0;
                             }
-                            /* 强制覆盖所有元素的背景色和文字颜色 */
-                            *, *::before, *::after {
-                                background-color: transparent !important;
-                                background-image: none !important;
+                            
+                            /* 标题样式 */
+                            h1, h2, h3, h4, h5, h6 {
+                                color: #FFFFFF !important;
+                                margin: 16px 0 8px 0;
+                            }
+                            
+                            /* 段落样式 */
+                            p {
                                 color: #E0E0E0 !important;
-                                border-color: #444444 !important;
-                                box-shadow: none !important;
-                                text-shadow: none !important;
+                                margin: 8px 0;
+                                line-height: 1.6;
                             }
-                            /* 特殊处理链接颜色 */
-                            a, a * {
-                                color: #BB86FC !important;
+                            
+                            /* 列表样式 */
+                            ul, ol {
+                                color: #E0E0E0 !important;
+                                margin: 8px 0;
+                                padding-left: 20px;
                             }
-                            /* 特殊处理body背景 */
-                            body, body * {
-                                background-color: #1E1E1E !important;
+                            li {
+                                color: #E0E0E0 !important;
+                                margin: 4px 0;
                             }
+                            
+                            /* 代码样式 */
+                            code {
+                                background-color: #2D2D2D !important;
+                                color: #F8F8F2 !important;
+                                padding: 2px 4px;
+                                border-radius: 4px;
+                                font-family: monospace;
+                            }
+                            pre {
+                                background-color: #2D2D2D !important;
+                                color: #F8F8F2 !important;
+                                padding: 12px;
+                                border-radius: 8px;
+                                overflow-x: auto;
+                                margin: 12px 0;
+                            }
+                            
+                            /* 引用样式 */
+                            blockquote {
+                                background-color: #2D2D2D !important;
+                                color: #E0E0E0 !important;
+                                border-left: 4px solid #BB86FC;
+                                margin: 12px 0;
+                                padding: 12px 16px;
+                                border-radius: 0 8px 8px 0;
+                            }
+                            
                             /* 表格样式 */
                             table {
                                 background-color: #2D2D2D !important;
@@ -591,39 +635,72 @@ fun HtmlText(html: String, modifier: Modifier = Modifier) {
                                 border-collapse: collapse;
                                 width: 100%;
                                 margin: 16px 0;
-                                filter: brightness(0.8) contrast(0.9);
-                                border-radius: 4px;
+                                border-radius: 8px;
                                 overflow: hidden;
-                                border: 1px solid #444444 !important;
+                                border: 1px solid #444444;
                             }
-                            /* 表格单元格样式 */
                             th, td {
-                                background-color: #2D2D2D !important;
                                 color: #E0E0E0 !important;
-                                border: 1px solid #444444 !important;
+                                border: 1px solid #444444;
                                 padding: 8px 12px;
                                 text-align: left;
                             }
-                            /* 表头样式 */
                             th {
                                 background-color: #3A3A3A !important;
                                 font-weight: bold;
+                                color: #FFFFFF !important;
                             }
-                            /* 斑马纹样式 */
                             tr:nth-child(even) {
                                 background-color: #252525 !important;
                             }
-                            tr:hover {
-                                background-color: #333333 !important;
+                            
+                            /* 分割线样式 */
+                            hr {
+                                border: none;
+                                height: 1px;
+                                background-color: #444444;
+                                margin: 16px 0;
                             }
-                            /* 确保所有div和p元素使用深色背景 */
-                            div, p, span, section, article {
-                                background-color: #2D2D2D !important;
+                            
+                            /* 强调文本样式 */
+                            strong, b {
+                                color: #FFFFFF !important;
+                                font-weight: bold;
+                            }
+                            em, i {
                                 color: #E0E0E0 !important;
-                                border: 1px solid #444444 !important;
-                                border-radius: 4px;
-                                padding: 8px;
-                                margin: 8px 0;
+                                font-style: italic;
+                            }
+                            
+                            /* 通用容器样式 - 不破坏布局 */
+                            div {
+                                color: #E0E0E0 !important;
+                            }
+                            span {
+                                color: inherit !important;
+                            }
+                            
+                            /* 清除可能破坏布局的样式 */
+                            * {
+                                text-shadow: none !important;
+                                box-shadow: none !important;
+                            }
+                            
+                            /* 处理可能存在的白色背景 */
+                            [style*="background-color: white"],
+                            [style*="background-color: #fff"],
+                            [style*="background-color: #ffffff"],
+                            [style*="background: white"],
+                            [style*="background: #fff"],
+                            [style*="background: #ffffff"] {
+                                background-color: #2D2D2D !important;
+                            }
+                            
+                            /* 处理可能存在的黑色文字 */
+                            [style*="color: black"],
+                            [style*="color: #000"],
+                            [style*="color: #000000"] {
+                                color: #E0E0E0 !important;
                             }
                         </style>
                     </head>
