@@ -17,6 +17,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Article
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.ErrorOutline
+import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
@@ -24,6 +25,7 @@ import androidx.compose.material3.*
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.*
+import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
@@ -35,6 +37,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.ddyy.zenfeed.data.Feed
 import com.ddyy.zenfeed.data.Labels
+import com.ddyy.zenfeed.ui.player.PlayerViewModel
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -43,11 +46,13 @@ fun FeedItem(
     feed: Feed,
     onClick: () -> Unit,
     onPlayPodcastList: (() -> Unit)? = null,
+    onTogglePlayPause: (() -> Unit)? = null,
+    isCurrentlyPlaying: Boolean = false,
+    isPlaying: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     // 简化卡片设计，减少重绘开销
     Card(
-        onClick = onClick,
         modifier = modifier
             .fillMaxWidth(),
         elevation = CardDefaults.cardElevation(
@@ -60,108 +65,124 @@ fun FeedItem(
             containerColor = MaterialTheme.colorScheme.surface
         )
     ) {
-        Column(
-            modifier = Modifier.padding(16.dp) // 统一内边距
-        ) {
-            // 来源信息区域 - 简化设计
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.fillMaxWidth()
+        Box {
+            Column(
+                modifier = Modifier
+                    .clickable { onClick() }
+                    .padding(16.dp) // 统一内边距
             ) {
-                // 简化图标
-                Icon(
-                    imageVector = Icons.AutoMirrored.Filled.Article,
-                    contentDescription = "来源图标",
-                    modifier = Modifier.size(16.dp),
-                    tint = MaterialTheme.colorScheme.primary
-                )
+                // 来源信息区域 - 简化设计，恢复原始布局
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    // 简化图标
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.Article,
+                        contentDescription = "来源图标",
+                        modifier = Modifier.size(16.dp),
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                    
+                    Spacer(modifier = Modifier.width(8.dp))
+                    
+                    Text(
+                        text = feed.labels.source,
+                        style = MaterialTheme.typography.labelMedium.copy(
+                            fontWeight = FontWeight.Medium
+                        ),
+                        color = MaterialTheme.colorScheme.primary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            
+                Spacer(modifier = Modifier.height(8.dp))
                 
-                Spacer(modifier = Modifier.width(8.dp))
-                
+                // 标题 - 根据阅读状态调整透明度
                 Text(
-                    text = feed.labels.source,
-                    style = MaterialTheme.typography.labelMedium.copy(
-                        fontWeight = FontWeight.Medium
+                    text = feed.labels.title,
+                    style = MaterialTheme.typography.titleMedium.copy(
+                        fontWeight = FontWeight.Bold
                     ),
-                    color = MaterialTheme.colorScheme.primary,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    color = MaterialTheme.colorScheme.onSurface.copy(
+                        alpha = if (feed.isRead) 0.6f else 1.0f // 已读文章标题淡化
+                    )
                 )
-            }
             
-            Spacer(modifier = Modifier.height(8.dp))
-            
-            // 标题 - 根据阅读状态调整透明度
-            Text(
-                text = feed.labels.title,
-                style = MaterialTheme.typography.titleMedium.copy(
-                    fontWeight = FontWeight.Bold
-                ),
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-                color = MaterialTheme.colorScheme.onSurface.copy(
-                    alpha = if (feed.isRead) 0.6f else 1.0f // 已读文章标题淡化
-                )
-            )
-            
-            // 摘要内容处理
-            val displayContent = remember(feed.labels.summaryHtmlSnippet, feed.labels.summary) {
-                if (feed.labels.summaryHtmlSnippet.isNotBlank()) {
-                    feed.labels.summaryHtmlSnippet
-                        .replace(Regex("<[^>]*>"), "")
-                        .replace("&nbsp;", " ")
-                        .replace("&amp;", "&")
-                        .replace("&lt;", "<")
-                        .replace("&gt;", ">")
-                        .replace("&quot;", "\"")
-                        .replace("&#39;", "'")
-                        .trim()
-                } else {
-                    feed.labels.summary.trim()
+                // 摘要内容处理
+                val displayContent = remember(feed.labels.summaryHtmlSnippet, feed.labels.summary) {
+                    if (feed.labels.summaryHtmlSnippet.isNotBlank()) {
+                        feed.labels.summaryHtmlSnippet
+                            .replace(Regex("<[^>]*>"), "")
+                            .replace("&nbsp;", " ")
+                            .replace("&amp;", "&")
+                            .replace("&lt;", "<")
+                            .replace("&gt;", ">")
+                            .replace("&quot;", "\"")
+                            .replace("&#39;", "'")
+                            .trim()
+                    } else {
+                        feed.labels.summary.trim()
+                    }
+                }
+                
+                // 显示摘要
+                if (displayContent.isNotEmpty()) {
+                    Spacer(modifier = Modifier.height(4.dp))
+                    
+                    Text(
+                        text = displayContent,
+                        style = MaterialTheme.typography.bodyMedium,
+                        maxLines = 3, // 减少行数
+                        overflow = TextOverflow.Ellipsis,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(
+                            alpha = if (feed.isRead) 0.5f else 1.0f // 已读文章摘要也淡化
+                        )
+                    )
                 }
             }
             
-            // 显示摘要
-            if (displayContent.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(4.dp))
-                
-                Text(
-                    text = displayContent,
-                    style = MaterialTheme.typography.bodyMedium,
-                    maxLines = 3, // 减少行数
-                    overflow = TextOverflow.Ellipsis,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(
-                        alpha = if (feed.isRead) 0.5f else 1.0f // 已读文章摘要也淡化
+            // 播客播放按钮 - 绝对定位在右上角
+            if (feed.labels.podcastUrl.isNotBlank() && (onPlayPodcastList != null || onTogglePlayPause != null)) {
+                FilledTonalIconButton(
+                    onClick = {
+                        if (isCurrentlyPlaying) {
+                            // 如果当前正在播放这个音频，切换播放/暂停
+                            onTogglePlayPause?.invoke()
+                        } else {
+                            // 如果没有播放或播放其他音频，开始播放这个列表
+                            onPlayPodcastList?.invoke()
+                        }
+                    },
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(8.dp)
+                        .size(28.dp),
+                    colors = IconButtonDefaults.filledTonalIconButtonColors(
+                        containerColor = if (isCurrentlyPlaying) {
+                            MaterialTheme.colorScheme.primary.copy(alpha = 0.9f)
+                        } else {
+                            MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.8f)
+                        },
+                        contentColor = if (isCurrentlyPlaying) {
+                            MaterialTheme.colorScheme.onPrimary
+                        } else {
+                            MaterialTheme.colorScheme.onPrimaryContainer
+                        }
                     )
-                )
-            }
-            
-            // 播客播放按钮（如果有播客URL）- 放在底部不影响标题和摘要
-            if (feed.labels.podcastUrl.isNotBlank() && onPlayPodcastList != null) {
-                Spacer(modifier = Modifier.height(12.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.End
                 ) {
-                    OutlinedButton(
-                        onClick = onPlayPodcastList,
-                        modifier = Modifier.height(36.dp),
-                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-                        colors = ButtonDefaults.outlinedButtonColors(
-                            contentColor = MaterialTheme.colorScheme.primary
-                        )
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.PlayArrow,
-                            contentDescription = "播放播客列表",
-                            modifier = Modifier.size(18.dp)
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(
-                            text = "播放播客",
-                            style = MaterialTheme.typography.labelMedium
-                        )
-                    }
+                    Icon(
+                        imageVector = if (isCurrentlyPlaying && isPlaying) {
+                            Icons.Default.Pause
+                        } else {
+                            Icons.Default.PlayArrow
+                        },
+                        contentDescription = if (isCurrentlyPlaying && isPlaying) "暂停播客" else "播放播客",
+                        modifier = Modifier.size(16.dp)
+                    )
                 }
             }
         }
@@ -244,9 +265,19 @@ fun FeedsList(
     onRefresh: () -> Unit,
     listState: LazyStaggeredGridState,
     onPlayPodcastList: ((List<Feed>, Int) -> Unit)? = null,
+    playerViewModel: PlayerViewModel? = null,
     modifier: Modifier = Modifier
 ) {
     val pullToRefreshState = rememberPullToRefreshState()
+    
+    // 观察播放状态
+    val isPlaying by playerViewModel?.isPlaying?.observeAsState(false) ?: remember { mutableStateOf(false) }
+    val playlistInfo by playerViewModel?.playlistInfo?.observeAsState() ?: remember { mutableStateOf(null) }
+    
+    // 获取当前播放列表
+    val currentPlaylist = remember(playlistInfo) {
+        playerViewModel?.getCurrentPlaylist() ?: emptyList()
+    }
     
     Column(modifier = modifier.fillMaxSize()) {
         // 分类筛选区域
@@ -284,13 +315,26 @@ fun FeedsList(
                     key = { feed -> "${feed.labels.title}-${feed.time}" }, // 添加唯一key避免重组
                     contentType = { "FeedItem" } // 添加contentType优化
                 ) { feed ->
-                    // 移除动画以减少抖动
+                    // 判断当前Feed是否正在播放
+                    val isCurrentlyPlaying = currentPlaylist.any {
+                        it.labels.podcastUrl == feed.labels.podcastUrl && feed.labels.podcastUrl.isNotBlank()
+                    } && playlistInfo?.let { info ->
+                        info.currentIndex >= 0 &&
+                        info.currentIndex < currentPlaylist.size &&
+                        currentPlaylist[info.currentIndex].labels.podcastUrl == feed.labels.podcastUrl
+                    } == true
+                    
                     FeedItem(
                         feed = feed,
                         onClick = { onFeedClick(feed) },
                         onPlayPodcastList = if (feed.labels.podcastUrl.isNotBlank()) {
                             { onPlayPodcastList?.invoke(feeds, feeds.indexOf(feed)) }
-                        } else null
+                        } else null,
+                        onTogglePlayPause = if (feed.labels.podcastUrl.isNotBlank()) {
+                            { playerViewModel?.togglePlayPause() }
+                        } else null,
+                        isCurrentlyPlaying = isCurrentlyPlaying,
+                        isPlaying = isPlaying
                     )
                 }
             }
@@ -311,6 +355,7 @@ fun FeedsScreen(
     onRefresh: () -> Unit,
     onSettingsClick: () -> Unit = {},
     onPlayPodcastList: ((List<Feed>, Int) -> Unit)? = null,
+    playerViewModel: PlayerViewModel? = null,
     modifier: Modifier = Modifier
 ) {
     val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
@@ -392,6 +437,7 @@ fun FeedsScreen(
                 onRefresh = onRefresh,
                 listState = listState,
                 onPlayPodcastList = onPlayPodcastList,
+                playerViewModel = playerViewModel,
                 modifier = Modifier.padding(innerPadding)
             )
             is FeedsUiState.Error -> ModernErrorScreen(Modifier.padding(innerPadding))

@@ -61,6 +61,31 @@ class PlayerViewModel : ViewModel() {
     }
     
     /**
+     * 切换播放/暂停状态
+     */
+    fun togglePlayPause() {
+        try {
+            val controller = playerService?.mediaSession?.controller
+            val currentState = controller?.playbackState?.state
+            
+            when (currentState) {
+                PlaybackStateCompat.STATE_PLAYING -> {
+                    controller.transportControls?.pause()
+                }
+                PlaybackStateCompat.STATE_PAUSED -> {
+                    controller.transportControls?.play()
+                }
+                else -> {
+                    // 如果没有在播放，什么也不做
+                    android.util.Log.d("PlayerViewModel", "当前没有可播放的内容")
+                }
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("PlayerViewModel", "切换播放暂停时出错", e)
+        }
+    }
+    
+    /**
      * 播放播客列表
      */
     fun playPodcastPlaylist(feeds: List<Feed>, startIndex: Int = 0) {

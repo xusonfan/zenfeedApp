@@ -78,7 +78,8 @@ fun AppNavigation() {
                         // 播放播客列表
                         playerViewModel.playPodcastPlaylist(podcastFeeds, correctedIndex)
                     }
-                }
+                },
+                playerViewModel = playerViewModel
             )
         }
         composable("feedDetail") {
