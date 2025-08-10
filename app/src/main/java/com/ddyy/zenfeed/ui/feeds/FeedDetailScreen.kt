@@ -72,6 +72,8 @@ fun FeedDetailScreen(
     feed: Feed,
     onBack: () -> Unit,
     onOpenWebView: (String, String) -> Unit = { _, _ -> },
+    onPlayPodcastList: ((List<Feed>, Int) -> Unit)? = null,
+    allFeeds: List<Feed> = emptyList(),
     modifier: Modifier = Modifier
 ) {
     val playerViewModel: PlayerViewModel = viewModel()
@@ -137,7 +139,16 @@ fun FeedDetailScreen(
                             if (it.isSameTrack(feed.labels.podcastUrl)) {
                                 it.resume()
                             } else {
-                                it.play(feed)
+                                // 优先使用播放列表功能，如果没有提供则使用单曲播放
+                                if (onPlayPodcastList != null && allFeeds.isNotEmpty()) {
+                                    // 使用全部feeds作为播放列表，从当前feed开始播放
+                                    val currentIndex = allFeeds.indexOfFirst {
+                                        it.labels.podcastUrl == feed.labels.podcastUrl && feed.labels.podcastUrl.isNotBlank()
+                                    }.takeIf { it >= 0 } ?: allFeeds.indexOf(feed).takeIf { it >= 0 } ?: 0
+                                    onPlayPodcastList(allFeeds, currentIndex)
+                                } else {
+                                    it.play(feed)
+                                }
                             }
                         }
                     }

@@ -12,6 +12,10 @@ class SharedViewModel : ViewModel() {
     var selectedFeed by mutableStateOf<Feed?>(null)
         private set
     
+    // 存储全部feeds列表用于播放列表功能
+    var allFeeds by mutableStateOf<List<Feed>>(emptyList())
+        private set
+    
     var webViewData by mutableStateOf<Pair<String, String>?>(null)
         private set
     
@@ -21,6 +25,13 @@ class SharedViewModel : ViewModel() {
 
     fun selectFeed(feed: Feed) {
         selectedFeed = feed
+    }
+    
+    /**
+     * 更新全部feeds列表
+     */
+    fun updateAllFeeds(feeds: List<Feed>) {
+        allFeeds = feeds
     }
     
     /**
