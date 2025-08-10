@@ -146,7 +146,7 @@ fun FeedDetailScreen(
             )
             Spacer(modifier = Modifier.height(8.dp))
             Text(
-                text = "发布于: ${feed.labels.pubTime}",
+                text = "发布于: ${feed.formattedTime}",
                 style = MaterialTheme.typography.labelMedium,
                 color = Color.Gray
             )
@@ -322,7 +322,7 @@ fun PlaylistDialog(
                                     )
                                     Spacer(modifier = Modifier.height(4.dp))
                                     Text(
-                                        text = "${feedItem.labels.source} • ${feedItem.labels.pubTime}",
+                                        text = "${feedItem.labels.source} • ${feedItem.formattedTime}",
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                                         maxLines = 1,
