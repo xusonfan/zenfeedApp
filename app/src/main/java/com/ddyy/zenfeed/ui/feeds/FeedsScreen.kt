@@ -1,11 +1,14 @@
 package com.ddyy.zenfeed.ui.feeds
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.staggeredgrid.LazyVerticalStaggeredGrid
+import androidx.compose.foundation.lazy.staggeredgrid.LazyStaggeredGridState
 import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridCells
 import androidx.compose.foundation.lazy.staggeredgrid.items
+import androidx.compose.foundation.lazy.staggeredgrid.rememberLazyStaggeredGridState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -14,9 +17,9 @@ import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.Stable
-import androidx.compose.runtime.remember
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
@@ -28,6 +31,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.ddyy.zenfeed.data.Feed
 import com.ddyy.zenfeed.data.Labels
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -122,25 +126,43 @@ fun FeedItem(feed: Feed, onClick: () -> Unit, modifier: Modifier = Modifier) {
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun FeedsList(feeds: List<Feed>, onFeedClick: (Feed) -> Unit, modifier: Modifier = Modifier) {
-    LazyVerticalStaggeredGrid(
-        columns = StaggeredGridCells.Adaptive(minSize = 200.dp), // 调整最小尺寸以减少重排
-        modifier = modifier.fillMaxSize(),
-        contentPadding = PaddingValues(12.dp), // 减少边距
-        verticalItemSpacing = 12.dp, // 减少间距
-        horizontalArrangement = Arrangement.spacedBy(12.dp)
+fun FeedsList(
+    feeds: List<Feed>,
+    onFeedClick: (Feed) -> Unit,
+    isRefreshing: Boolean,
+    onRefresh: () -> Unit,
+    listState: LazyStaggeredGridState,
+    modifier: Modifier = Modifier
+) {
+    val pullToRefreshState = rememberPullToRefreshState()
+    
+    PullToRefreshBox(
+        state = pullToRefreshState,
+        isRefreshing = isRefreshing,
+        onRefresh = onRefresh,
+        modifier = modifier.fillMaxSize()
     ) {
-        items(
-            items = feeds,
-            key = { feed -> "${feed.labels.title}-${feed.time}" }, // 添加唯一key避免重组
-            contentType = { "FeedItem" } // 添加contentType优化
-        ) { feed ->
-            // 移除动画以减少抖动
-            FeedItem(
-                feed = feed,
-                onClick = { onFeedClick(feed) }
-            )
+        LazyVerticalStaggeredGrid(
+            columns = StaggeredGridCells.Adaptive(minSize = 200.dp), // 调整最小尺寸以减少重排
+            state = listState,
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(12.dp), // 减少边距
+            verticalItemSpacing = 12.dp, // 减少间距
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            items(
+                items = feeds,
+                key = { feed -> "${feed.labels.title}-${feed.time}" }, // 添加唯一key避免重组
+                contentType = { "FeedItem" } // 添加contentType优化
+            ) { feed ->
+                // 移除动画以减少抖动
+                FeedItem(
+                    feed = feed,
+                    onClick = { onFeedClick(feed) }
+                )
+            }
         }
     }
 }
@@ -150,11 +172,19 @@ fun FeedsList(feeds: List<Feed>, onFeedClick: (Feed) -> Unit, modifier: Modifier
 @Stable
 fun FeedsScreen(
     feedsUiState: FeedsUiState,
+    isRefreshing: Boolean,
     onFeedClick: (Feed) -> Unit,
+    onRefresh: () -> Unit,
     onSettingsClick: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
+    val listState = rememberLazyStaggeredGridState()
+    val coroutineScope = rememberCoroutineScope()
+    
+    // 双击检测状态
+    var lastClickTime by remember { mutableLongStateOf(0L) }
+    val doubleTapThreshold = 300L // 双击时间间隔阈值（毫秒）
 
     Scaffold(
         modifier = modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
@@ -168,7 +198,22 @@ fun FeedsScreen(
                             fontWeight = FontWeight.ExtraBold,
                             letterSpacing = 1.sp
                         ),
-                        color = MaterialTheme.colorScheme.primary
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.clickable(
+                            indication = null,
+                            interactionSource = remember { MutableInteractionSource() }
+                        ) {
+                            val currentTime = System.currentTimeMillis()
+                            if (currentTime - lastClickTime <= doubleTapThreshold) {
+                                // 双击事件：滚动到顶部
+                                coroutineScope.launch {
+                                    listState.animateScrollToItem(0)
+                                }
+                                lastClickTime = 0L // 重置时间避免三击
+                            } else {
+                                lastClickTime = currentTime
+                            }
+                        }
                     )
                 },
                 actions = {
@@ -194,6 +239,9 @@ fun FeedsScreen(
             is FeedsUiState.Success -> FeedsList(
                 feeds = feedsUiState.feeds,
                 onFeedClick = onFeedClick,
+                isRefreshing = isRefreshing,
+                onRefresh = onRefresh,
+                listState = listState,
                 modifier = Modifier.padding(innerPadding)
             )
             is FeedsUiState.Error -> ModernErrorScreen(Modifier.padding(innerPadding))
@@ -368,7 +416,9 @@ fun FeedsScreenSuccessPreview() {
                     )
                 }
             ),
-            onFeedClick = {}
+            isRefreshing = false,
+            onFeedClick = {},
+            onRefresh = {}
         )
     }
 }

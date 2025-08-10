@@ -33,9 +33,13 @@ fun AppNavigation() {
             val feedsViewModel = androidx.lifecycle.viewmodel.compose.viewModel<FeedsViewModel>()
             FeedsScreen(
                 feedsUiState = feedsViewModel.feedsUiState,
+                isRefreshing = feedsViewModel.isRefreshing,
                 onFeedClick = { feed ->
                     sharedViewModel.selectFeed(feed)
                     navController.navigate("feedDetail")
+                },
+                onRefresh = {
+                    feedsViewModel.refreshFeeds()
                 },
                 onSettingsClick = {
                     navController.navigate("settings")

@@ -26,6 +26,10 @@ class FeedsViewModel(application: Application) : AndroidViewModel(application) {
 
     var feedsUiState: FeedsUiState by mutableStateOf(FeedsUiState.Loading)
         private set
+    
+    // 下拉刷新状态
+    var isRefreshing: Boolean by mutableStateOf(false)
+        private set
 
     init {
         getFeeds()
@@ -43,6 +47,22 @@ class FeedsViewModel(application: Application) : AndroidViewModel(application) {
             } else {
                 FeedsUiState.Error
             }
+        }
+    }
+    
+    /**
+     * 下拉刷新获取Feed列表
+     */
+    fun refreshFeeds() {
+        viewModelScope.launch {
+            isRefreshing = true
+            val result = feedRepository.getFeeds()
+            feedsUiState = if (result.isSuccess) {
+                FeedsUiState.Success(result.getOrNull()?.feeds ?: emptyList())
+            } else {
+                FeedsUiState.Error
+            }
+            isRefreshing = false
         }
     }
 }
