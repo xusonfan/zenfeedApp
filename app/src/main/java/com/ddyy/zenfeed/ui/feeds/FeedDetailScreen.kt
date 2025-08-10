@@ -4,6 +4,7 @@ import android.media.MediaPlayer
 import android.util.Log
 import android.webkit.WebView
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -34,6 +35,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.ddyy.zenfeed.data.Feed
 import com.ddyy.zenfeed.ui.player.PlayerViewModel
+import androidx.core.graphics.toColorInt
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -325,12 +327,166 @@ fun PlaylistDialog(
 
 @Composable
 fun HtmlText(html: String, modifier: Modifier = Modifier) {
+    val isDarkTheme = isSystemInDarkTheme()
+    
     AndroidView(
         modifier = modifier,
         factory = { context ->
             WebView(context).apply {
-                loadDataWithBaseURL(null, html, "text/html", "UTF-8", null)
+                // 启用JavaScript支持，以便可以动态设置主题
+                settings.javaScriptEnabled = true
+                
+                // 根据系统主题设置WebView背景色
+                setBackgroundColor(if (isDarkTheme)
+                    "#1E1E1E".toColorInt()
+                else
+                    "#FFFFFF".toColorInt()
+                )
+                
+                // 根据主题调整HTML内容
+                val themedHtml = if (isDarkTheme) {
+                    """
+                    <html>
+                    <head>
+                        <style>
+                            body {
+                                background-color: #1E1E1E;
+                                color: #E0E0E0;
+                                font-family: sans-serif;
+                                line-height: 1.6;
+                            }
+                            a {
+                                color: #BB86FC;
+                            }
+                            img {
+                                max-width: 100%;
+                                height: auto;
+                                filter: brightness(0.7) contrast(0.8);
+                                opacity: 0.85;
+                                border-radius: 4px;
+                            }
+                            /* 强制覆盖所有元素的背景色和文字颜色 */
+                            *, *::before, *::after {
+                                background-color: transparent !important;
+                                background-image: none !important;
+                                color: #E0E0E0 !important;
+                                border-color: #444444 !important;
+                                box-shadow: none !important;
+                                text-shadow: none !important;
+                            }
+                            /* 特殊处理链接颜色 */
+                            a, a * {
+                                color: #BB86FC !important;
+                            }
+                            /* 特殊处理body背景 */
+                            body, body * {
+                                background-color: #1E1E1E !important;
+                            }
+                            /* 表格样式 */
+                            table {
+                                background-color: #2D2D2D !important;
+                                color: #E0E0E0 !important;
+                                border-collapse: collapse;
+                                width: 100%;
+                                margin: 16px 0;
+                                filter: brightness(0.8) contrast(0.9);
+                                border-radius: 4px;
+                                overflow: hidden;
+                                border: 1px solid #444444 !important;
+                            }
+                            /* 表格单元格样式 */
+                            th, td {
+                                background-color: #2D2D2D !important;
+                                color: #E0E0E0 !important;
+                                border: 1px solid #444444 !important;
+                                padding: 8px 12px;
+                                text-align: left;
+                            }
+                            /* 表头样式 */
+                            th {
+                                background-color: #3A3A3A !important;
+                                font-weight: bold;
+                            }
+                            /* 斑马纹样式 */
+                            tr:nth-child(even) {
+                                background-color: #252525 !important;
+                            }
+                            tr:hover {
+                                background-color: #333333 !important;
+                            }
+                            /* 确保所有div和p元素使用深色背景 */
+                            div, p, span, section, article {
+                                background-color: #2D2D2D !important;
+                                color: #E0E0E0 !important;
+                                border: 1px solid #444444 !important;
+                                border-radius: 4px;
+                                padding: 8px;
+                                margin: 8px 0;
+                            }
+                        </style>
+                    </head>
+                    <body>
+                        $html
+                    </body>
+                    </html>
+                    """
+                } else {
+                    """
+                    <html>
+                    <head>
+                        <style>
+                            body {
+                                background-color: #FFFFFF;
+                                color: #000000;
+                                font-family: sans-serif;
+                                line-height: 1.6;
+                            }
+                            a {
+                                color: #6650a4;
+                            }
+                            img {
+                                max-width: 100%;
+                                height: auto;
+                            }
+                            table {
+                                border-collapse: collapse;
+                                width: 100%;
+                                margin: 16px 0;
+                            }
+                            th, td {
+                                border: 1px solid #dddddd;
+                                padding: 8px 12px;
+                                text-align: left;
+                            }
+                            th {
+                                background-color: #f2f2f2;
+                                font-weight: bold;
+                            }
+                            tr:nth-child(even) {
+                                background-color: #f9f9f9;
+                            }
+                            tr:hover {
+                                background-color: #f5f5f5;
+                            }
+                        </style>
+                    </head>
+                    <body>
+                        $html
+                    </body>
+                    </html>
+                    """
+                }
+                
+                loadDataWithBaseURL(null, themedHtml, "text/html", "UTF-8", null)
             }
+        },
+        update = { webView ->
+            // 当主题变化时更新WebView
+            webView.setBackgroundColor(if (isDarkTheme)
+                "#1E1E1E".toColorInt()
+            else
+                "#FFFFFF".toColorInt()
+            )
         }
     )
 }

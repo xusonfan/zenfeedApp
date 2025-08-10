@@ -1,5 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
 
+    <!-- 日间主题 -->
     <style name="Theme.Zenfeed" parent="android:Theme.Material.Light.NoActionBar" />
+    
+    <!-- 夜间主题 -->
+    <style name="Theme.Zenfeed.Dark" parent="android:Theme.Material.NoActionBar" />
 </resources>
