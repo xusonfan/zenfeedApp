@@ -3,7 +3,6 @@ package com.ddyy.zenfeed.ui.settings
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.ddyy.zenfeed.R
 import com.ddyy.zenfeed.data.SettingsDataStore
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow

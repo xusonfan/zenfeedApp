@@ -12,10 +12,10 @@ import okhttp3.Request
 import okhttp3.Response
 import okhttp3.Route
 import okhttp3.logging.HttpLoggingInterceptor
-import java.net.InetSocketAddress
-import java.net.Proxy
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
+import java.net.InetSocketAddress
+import java.net.Proxy
 
 /**
  * API客户端管理类

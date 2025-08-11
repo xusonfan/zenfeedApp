@@ -7,13 +7,8 @@ import android.webkit.WebResourceResponse
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import com.ddyy.zenfeed.data.network.ApiClient
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import okhttp3.Request
 import java.io.ByteArrayInputStream
-import java.io.InputStream
 
 /**
  * 支持代理的 WebViewClient
