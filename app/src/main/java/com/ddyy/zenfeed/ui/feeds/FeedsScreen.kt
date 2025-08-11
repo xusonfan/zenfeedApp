@@ -105,6 +105,16 @@ fun FeedItem(
     isCurrentlyPlaying: Boolean = false,
     isPlaying: Boolean = false
 ) {
+    // 使用 remember 缓存不变的属性，减少重组开销
+    val hasValidPodcast = remember(feed.labels.podcastUrl) {
+        !feed.labels.podcastUrl.isNullOrBlank()
+    }
+    val feedTitle = remember(feed.labels.title) {
+        feed.labels.title ?: "未知标题"
+    }
+    val feedSource = remember(feed.labels.source) {
+        feed.labels.source ?: "未知来源"
+    }
     // 简化卡片设计，减少重绘开销
     Card(
         modifier = modifier
@@ -141,7 +151,7 @@ fun FeedItem(
                     Spacer(modifier = Modifier.width(8.dp))
                     
                     Text(
-                        text = feed.labels.source ?: "未知来源",
+                        text = feedSource,
                         style = MaterialTheme.typography.labelMedium.copy(
                             fontWeight = FontWeight.Medium
                         ),
@@ -174,7 +184,7 @@ fun FeedItem(
                 
                 // 标题 - 根据阅读状态调整透明度
                 Text(
-                    text = feed.labels.title ?: "未知标题",
+                    text = feedTitle,
                     style = MaterialTheme.typography.titleMedium.copy(
                         fontWeight = FontWeight.Bold
                     ),
@@ -185,11 +195,15 @@ fun FeedItem(
                     )
                 )
             
-                // 摘要内容处理
+                // 摘要内容处理 - 优化HTML处理性能
                 val displayContent = remember(feed.labels.summaryHtmlSnippet, feed.labels.summary) {
-                    if (!feed.labels.summaryHtmlSnippet.isNullOrBlank()) {
-                        feed.labels.summaryHtmlSnippet
-                            .replace(Regex("<[^>]*>"), "")
+                    val content = feed.labels.summaryHtmlSnippet?.takeIf { it.isNotBlank() }
+                        ?: feed.labels.summary?.takeIf { it.isNotBlank() }
+                        ?: ""
+                    
+                    if (content.contains('<')) {
+                        // 只有包含HTML标签时才进行处理
+                        content.replace(Regex("<[^>]*>"), "")
                             .replace("&nbsp;", " ")
                             .replace("&amp;", "&")
                             .replace("&lt;", "<")
@@ -198,7 +212,7 @@ fun FeedItem(
                             .replace("&#39;", "'")
                             .trim()
                     } else {
-                        feed.labels.summary?.trim() ?: ""
+                        content.trim()
                     }
                 }
                 
@@ -220,7 +234,7 @@ fun FeedItem(
             }
 
             // 播客播放按钮 - 绝对定位在右上角
-            if (!feed.labels.podcastUrl.isNullOrBlank() && (onPlayPodcastList != null || onTogglePlayPause != null)) {
+            if (hasValidPodcast && (onPlayPodcastList != null || onTogglePlayPause != null)) {
                 FilledTonalButton(
                     onClick = {
                         if (isCurrentlyPlaying) {
@@ -500,10 +514,10 @@ fun FeedsScreenContent(
                      currentListState.firstVisibleItemScrollOffset == 0
         
         if (!isAtTop) {
-            // 如果不在顶部，滚动到顶部
+            // 如果不在顶部，滚动到顶部 - 使用 scrollToItem 替代 animateScrollToItem 提升性能
             coroutineScope.launch {
                 try {
-                    currentListState?.animateScrollToItem(0)
+                    currentListState?.scrollToItem(0) // 使用即时滚动，避免动画卡顿
                     hasScrolledToTop = true
                 } catch (e: kotlinx.coroutines.CancellationException) {
                     // 检查是否是LeftCompositionCancellationException
@@ -577,13 +591,13 @@ fun FeedsScreenContent(
                             ) {
                                 val currentTime = System.currentTimeMillis()
                                 if (currentTime - lastClickTime <= doubleTapThreshold) {
-                                    // 双击事件：滚动到顶部
+                                    // 双击事件：滚动到顶部 - 优化滚动性能
                                     coroutineScope.launch {
                                         try {
                                             // 根据 pagerState 获取当前可见的列表状态并滚动
                                             val categoryToScroll = pagerCategories.getOrNull(pagerState.currentPage)
                                             val stateToScroll = categoryToScroll?.let { listStates[it] }
-                                            stateToScroll?.animateScrollToItem(0)
+                                            stateToScroll?.scrollToItem(0) // 使用即时滚动
                                         } catch (e: kotlinx.coroutines.CancellationException) {
                                             // 检查是否是LeftCompositionCancellationException
                                             if (e.message?.contains("left the composition") == true) {
@@ -680,7 +694,7 @@ fun FeedsScreenContent(
                                         "" // 默认为全部分类
                                     }
                                     val listState = listStates[category]
-                                    listState?.animateScrollToItem(0)
+                                    listState?.scrollToItem(0) // 使用即时滚动提升性能
                                 } catch (e: kotlinx.coroutines.CancellationException) {
                                     // 检查是否是LeftCompositionCancellationException
                                     if (e.message?.contains("left the composition") == true) {
@@ -706,9 +720,10 @@ fun FeedsScreenContent(
 
                     // 预先按分类对 feeds 进行分组，避免在 Pager 内部进行昂贵的过滤操作
                     val categorizedFeeds = remember(feedsUiState.feeds) {
-                        val grouped = feedsUiState.feeds.groupBy { it.labels.category ?: "" }
-                        // 将"全部"类别也添加进去，通过调换合并顺序，确保"全部"列表覆盖任何可能存在的、分类为空字符串的列表
-                        grouped + ("" to feedsUiState.feeds)
+                        val grouped = feedsUiState.feeds.groupBy { it.labels.category ?: "" }.toMutableMap()
+                        // 将"全部"类别也添加进去，确保"全部"列表覆盖任何可能存在的、分类为空字符串的列表
+                        grouped[""] = feedsUiState.feeds
+                        grouped.toMap()
                     }
                     
                     // 处理返回时的滚动定位 - 检测页面重新进入
@@ -749,7 +764,7 @@ fun FeedsScreenContent(
                                 if (listState != null) {
                                     try {
                                         Log.d("FeedsScreen", "开始滚动到索引: $targetIndex")
-                                        listState.animateScrollToItem(targetIndex)
+                                        listState.scrollToItem(targetIndex) // 使用即时滚动提升性能
                                         Log.d("FeedsScreen", "滚动完成")
                                     } catch (e: kotlinx.coroutines.CancellationException) {
                                         // 检查是否是LeftCompositionCancellationException
@@ -823,7 +838,7 @@ fun FeedsScreenContent(
                                 modifier = Modifier.fillMaxSize()
                             ) {
                                 LazyVerticalStaggeredGrid(
-                                    columns = StaggeredGridCells.Adaptive(minSize = 200.dp),
+                                    columns = StaggeredGridCells.Fixed(1), // 使用单列布局
                                     state = listState,
                                     modifier = Modifier.fillMaxSize(),
                                     contentPadding = PaddingValues(12.dp),
@@ -832,16 +847,21 @@ fun FeedsScreenContent(
                                 ) {
                                     items(
                                         items = feedsForCategory,
-                                        key = { feed -> "${feed.labels.title ?: "unknown"}-${feed.time}" },
+                                        key = { feed -> "${feed.time}-${feed.labels.title?.hashCode() ?: 0}" }, // 确保 key 唯一性
                                         contentType = { "FeedItem" }
                                     ) { feed ->
-                                        val isCurrentlyPlaying = currentPlaylist.any {
-                                            it.labels.podcastUrl == feed.labels.podcastUrl && !feed.labels.podcastUrl.isNullOrBlank()
-                                        } && playlistInfo?.let { info ->
-                                            info.currentIndex >= 0 &&
-                                                    info.currentIndex < currentPlaylist.size &&
-                                                    currentPlaylist[info.currentIndex].labels.podcastUrl == feed.labels.podcastUrl
-                                        } == true
+                                        // 优化播客状态计算 - 减少重复计算
+                                        val isCurrentlyPlaying = remember(feed.labels.podcastUrl, playlistInfo, currentPlaylist) {
+                                            if (feed.labels.podcastUrl.isNullOrBlank()) {
+                                                false
+                                            } else {
+                                                playlistInfo?.let { info ->
+                                                    info.currentIndex >= 0 &&
+                                                            info.currentIndex < currentPlaylist.size &&
+                                                            currentPlaylist[info.currentIndex].labels.podcastUrl == feed.labels.podcastUrl
+                                                } == true
+                                            }
+                                        }
 
                                         FeedItem(
                                             feed = feed,
@@ -865,7 +885,7 @@ fun FeedsScreenContent(
                                     onClick = {
                                         coroutineScope.launch {
                                             try {
-                                                listState.animateScrollToItem(lastReadIndex)
+                                                listState.scrollToItem(lastReadIndex) // 使用即时滚动提升性能
                                             } catch (e: kotlinx.coroutines.CancellationException) {
                                                 // 检查是否是LeftCompositionCancellationException
                                                 if (e.message?.contains("left the composition") == true) {

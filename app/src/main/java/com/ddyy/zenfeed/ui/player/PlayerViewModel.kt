@@ -49,7 +49,7 @@ class PlayerViewModel : ViewModel() {
             // 创建新的回调并注册
             mediaControllerCallback = object : android.support.v4.media.session.MediaControllerCompat.Callback() {
                 override fun onPlaybackStateChanged(state: PlaybackStateCompat?) {
-                    Log.d("PlayerViewModel", "播放状态变化: ${state?.state}")
+//                    Log.d("PlayerViewModel", "播放状态变化: ${state?.state}")
                     _isPlaying.value = state?.state == PlaybackStateCompat.STATE_PLAYING
                     // 播放状态变化时更新播放列表信息
                     updatePlaylistInfo()
