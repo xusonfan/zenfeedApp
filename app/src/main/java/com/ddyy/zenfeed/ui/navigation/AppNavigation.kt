@@ -19,6 +19,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.ddyy.zenfeed.data.SettingsDataStore
 import com.ddyy.zenfeed.ui.SharedViewModel
+import com.ddyy.zenfeed.ui.about.AboutScreen
 import com.ddyy.zenfeed.ui.feeds.FeedDetailScreen
 import com.ddyy.zenfeed.ui.feeds.FeedsScreen
 import com.ddyy.zenfeed.ui.feeds.FeedsUiState
@@ -113,6 +114,9 @@ fun AppNavigation(sharedViewModel: SharedViewModel) {
                 },
                 onLoggingClick = {
                     navController.navigate("logging")
+                },
+                onAboutClick = {
+                    navController.navigate("about")
                 },
                 onPlayPodcastList = { feeds, startIndex ->
                     // 过滤出有播客URL的Feed
@@ -394,6 +398,43 @@ fun AppNavigation(sharedViewModel: SharedViewModel) {
             }
         ) {
             LoggingScreen(
+                onBack = { navController.popBackStack() }
+            )
+        }
+        composable(
+            "about",
+            enterTransition = {
+                // 组合滑动和淡入动画，减少闪烁
+                slideIntoContainer(
+                    towards = AnimatedContentTransitionScope.SlideDirection.Left,
+                    animationSpec = tween(
+                        durationMillis = 350,
+                        easing = FastOutSlowInEasing
+                    )
+                ) + fadeIn(
+                    animationSpec = tween(
+                        durationMillis = 200,
+                        easing = FastOutSlowInEasing
+                    )
+                )
+            },
+            exitTransition = {
+                // 组合滑动和淡出动画，减少闪烁
+                slideOutOfContainer(
+                    towards = AnimatedContentTransitionScope.SlideDirection.Right,
+                    animationSpec = tween(
+                        durationMillis = 350,
+                        easing = FastOutSlowInEasing
+                    )
+                ) + fadeOut(
+                    animationSpec = tween(
+                        durationMillis = 200,
+                        easing = FastOutSlowInEasing
+                    )
+                )
+            }
+        ) {
+            AboutScreen(
                 onBack = { navController.popBackStack() }
             )
         }

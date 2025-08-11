@@ -39,6 +39,7 @@ import androidx.compose.material.icons.filled.AutoMode
 import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.ErrorOutline
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Pause
@@ -92,6 +93,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.ddyy.zenfeed.BuildConfig
 import com.ddyy.zenfeed.data.Feed
 import com.ddyy.zenfeed.data.Labels
 import com.ddyy.zenfeed.ui.player.PlayerViewModel
@@ -479,6 +481,7 @@ fun FeedsScreen(
     modifier: Modifier = Modifier,
     onSettingsClick: () -> Unit = {},
     onLoggingClick: () -> Unit = {},
+    onAboutClick: () -> Unit = {},
     onPlayPodcastList: ((List<Feed>, Int) -> Unit)? = null,
     playerViewModel: PlayerViewModel? = null,
     sharedViewModel: com.ddyy.zenfeed.ui.SharedViewModel? = null,
@@ -515,6 +518,7 @@ fun FeedsScreen(
         onRefresh = onRefresh,
         onSettingsClick = onSettingsClick,
         onLoggingClick = onLoggingClick,
+        onAboutClick = onAboutClick,
         onPlayPodcastList = onPlayPodcastList,
         playerViewModel = playerViewModel,
         listStates = listStates,
@@ -540,6 +544,7 @@ fun FeedsScreenContent(
     onRefresh: () -> Unit,
     onSettingsClick: () -> Unit,
     onLoggingClick: () -> Unit,
+    onAboutClick: () -> Unit,
     onPlayPodcastList: ((List<Feed>, Int) -> Unit)?,
     playerViewModel: PlayerViewModel?,
     listStates: MutableMap<String, LazyStaggeredGridState>,
@@ -649,6 +654,12 @@ fun FeedsScreenContent(
                         drawerState.close()
                     }
                     onLoggingClick()
+                },
+                onAboutClick = {
+                    coroutineScope.launch {
+                        drawerState.close()
+                    }
+                    onAboutClick()
                 },
                 currentThemeMode = currentThemeMode,
                 onThemeToggle = onThemeToggle,
@@ -1069,6 +1080,7 @@ fun DrawerContent(
     onSettingsClick: () -> Unit,
     modifier: Modifier = Modifier,
     onLoggingClick: () -> Unit = {},
+    onAboutClick: () -> Unit = {},
     currentThemeMode: String = "system",
     onThemeToggle: () -> Unit = {},
     isProxyEnabled: Boolean = false,
@@ -1159,13 +1171,21 @@ fun DrawerContent(
                 subtitle = "应用设置和配置",
                 onClick = onSettingsClick
             )
+            
+            // 关于菜单项
+            MenuItemCard(
+                icon = Icons.Default.Info,
+                title = "关于",
+                subtitle = "应用信息和版本详情",
+                onClick = onAboutClick
+            )
         }
         
         Spacer(modifier = Modifier.weight(1f))
         
         // 底部信息
         Text(
-            text = "版本 1.0.0",
+            text = "版本 ${BuildConfig.VERSION_NAME}",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
             modifier = Modifier.padding(horizontal = 24.dp, vertical = 16.dp)
@@ -1382,6 +1402,7 @@ fun FeedsScreenSuccessPreview() {
             onRefresh = {},
             onSettingsClick = {},
             onLoggingClick = {},
+            onAboutClick = {},
             onPlayPodcastList = null,
             playerViewModel = null,
             listStates = remember { mutableMapOf() },

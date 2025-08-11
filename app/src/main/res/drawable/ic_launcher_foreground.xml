@@ -3,13 +3,17 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
+    <!-- 与关于页面完全一致的设计：圆形背景 + Z字母 -->
     <group
-        android:scaleX="0.6"
-        android:scaleY="0.6"
-        android:translateX="32.4"
-        android:translateY="32.4">
+        android:translateX="54"
+        android:translateY="54">
+        <!-- 扁圆形背景（圆角矩形），符合现代应用图标风格，填满图标空间 -->
+        <path
+            android:fillColor="#256387"
+            android:pathData="M -24,-40 L 24,-40 A 16,16 0 0,1 40,-24 L 40,24 A 16,16 0 0,1 24,40 L -24,40 A 16,16 0 0,1 -40,24 L -40,-24 A 16,16 0 0,1 -24,-40 Z" />
+        <!-- Z字母，使用文字风格的简单设计，放大以匹配图标尺寸 -->
         <path
             android:fillColor="#FFFFFF"
-            android:pathData="M 0,0 L 72,0 L 72,15 L 25,57 L 72,57 L 72,72 L 0,72 L 0,57 L 47,15 L 0,15 Z" />
+            android:pathData="M -16,-14 L 16,-14 L 16,-6 L -4,6 L 16,6 L 16,14 L -16,14 L -16,6 L 4,-6 L -16,-6 Z" />
     </group>
 </vector>
