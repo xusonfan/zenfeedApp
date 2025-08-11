@@ -7,6 +7,7 @@ import android.webkit.WebResourceResponse
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import com.ddyy.zenfeed.data.network.ApiClient
+import kotlinx.coroutines.runBlocking
 import okhttp3.Request
 import java.io.ByteArrayInputStream
 
@@ -27,7 +28,9 @@ class ProxyWebViewClient(private val context: Context) : WebViewClient() {
                 Log.d(TAG, "拦截请求: $url")
                 
                 // 使用应用的 OkHttp 客户端（已配置代理）进行网络请求
-                val httpClient = ApiClient.getHttpClient(context)
+                val httpClient = runBlocking {
+                    ApiClient.getHttpClient(context)
+                }
                 
                 // 构建 OkHttp 请求
                 val requestBuilder = Request.Builder().url(url)
@@ -57,8 +60,7 @@ class ProxyWebViewClient(private val context: Context) : WebViewClient() {
                             responseHeaders[name] = value
                         }
                         
-                        val inputStream = response.body?.byteStream()
-                            ?: ByteArrayInputStream(ByteArray(0))
+                        val inputStream = response.body.byteStream()
                         
                         Log.d(TAG, "代理请求成功: $url, 状态码: ${response.code}")
                         

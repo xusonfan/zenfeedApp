@@ -177,7 +177,7 @@ class SettingsDataStore(private val context: Context) {
      * 获取当前保存的API基础地址（同步方式，用于初始化）
      * @return 当前保存的API基础地址，如果没有则返回默认地址
      */
-    suspend fun getCurrentApiBaseUrl(): String {
+    fun getCurrentApiBaseUrl(): String {
         val preferences = context.settingsDataStore.data
         return preferences.map { prefs ->
             prefs[API_BASE_URL_KEY] ?: DEFAULT_API_BASE_URL

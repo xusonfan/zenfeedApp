@@ -92,7 +92,7 @@ fun WebViewScreen(
                         settings.apply {
                             javaScriptEnabled = true
                             domStorageEnabled = true
-                            databaseEnabled = true
+                            // databaseEnabled 已弃用，现代WebView不再使用数据库存储
                             
                             // 缓存设置
                             cacheMode = WebSettings.LOAD_DEFAULT

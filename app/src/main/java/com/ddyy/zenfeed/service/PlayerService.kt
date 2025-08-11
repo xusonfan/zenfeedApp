@@ -308,7 +308,7 @@ class PlayerService : Service() {
             }
             
             // 生成文件名（基于URL的hash值）
-            val fileName = "${url.hashCode().toString()}.tmp"
+            val fileName = "${url.hashCode()}.tmp"
             val localFile = File(cacheDir, fileName)
             
             // 如果文件已存在且大小合理，直接使用

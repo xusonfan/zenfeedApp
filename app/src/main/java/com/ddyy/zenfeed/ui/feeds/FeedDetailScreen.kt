@@ -34,14 +34,13 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.OpenInBrowser
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.PlaylistPlay
 import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.material.icons.filled.ShuffleOn
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.Divider
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -154,7 +153,7 @@ fun FeedDetailScreen(
             ) {
                 // 主播放按钮
                 FloatingActionButton(onClick = {
-                    playerViewModel.playerService?.let {
+                    playerViewModel.playerService?.let { it ->
                         if (isPlaying) {
                             it.pause()
                         } else {
@@ -302,7 +301,7 @@ fun PlaylistDialog(
                     }
                 }
                 
-                Divider()
+                HorizontalDivider()
                 
                 // 播放控制按钮行
                 playlistInfo?.let { info ->
@@ -321,7 +320,7 @@ fun PlaylistDialog(
                                     .size(40.dp)
                             ) {
                                 Icon(
-                                    imageVector = Icons.Default.PlaylistPlay,
+                                    imageVector = Icons.AutoMirrored.Filled.PlaylistPlay,
                                     contentDescription = "循环播放",
                                     tint = if (info.isRepeat) {
                                         MaterialTheme.colorScheme.primary
@@ -375,7 +374,7 @@ fun PlaylistDialog(
                             )
                         }
                         
-                        Divider(modifier = Modifier.padding(horizontal = 16.dp))
+                        HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
                     }
                 }
                 
@@ -416,7 +415,7 @@ fun PlaylistDialog(
                                     imageVector = if (isCurrentPlaying) {
                                         Icons.Default.PlayArrow
                                     } else {
-                                        Icons.Default.PlaylistPlay
+                                        Icons.AutoMirrored.Filled.PlaylistPlay
                                     },
                                     contentDescription = if (isCurrentPlaying) "正在播放" else "播放",
                                     tint = if (isCurrentPlaying) {

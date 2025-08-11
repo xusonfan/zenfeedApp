@@ -2,12 +2,14 @@ package com.ddyy.zenfeed.data
 
 import android.content.Context
 import android.content.SharedPreferences
+import androidx.core.content.edit
 import com.ddyy.zenfeed.data.network.ApiClient
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import kotlinx.coroutines.flow.first
 import java.text.SimpleDateFormat
 import java.util.Date
+import java.util.Locale
 import java.util.TimeZone
 
 /**
@@ -46,7 +48,7 @@ class FeedRepository(private val context: Context) {
             // 从网络获取新数据
             val now = Date()
             val start = Date(now.time - 24 * 60 * 60 * 1000) // 24 hours ago
-            val dateFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'").apply {
+            val dateFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US).apply {
                 timeZone = TimeZone.getTimeZone("UTC")
             }
 
@@ -110,12 +112,12 @@ class FeedRepository(private val context: Context) {
     /**
      * 获取缓存的 Feed 数据
      */
-    suspend fun getCachedFeeds(): List<Feed>? {
+    fun getCachedFeeds(): List<Feed>? {
         return try {
             val feedsJson = sharedPreferences.getString(CACHE_KEY_FEEDS, null)
             if (feedsJson != null) {
                 val type = object : TypeToken<List<Feed>>() {}.type
-                gson.fromJson<List<Feed>>(feedsJson, type)
+                gson.fromJson(feedsJson, type)
             } else {
                 null
             }
@@ -131,10 +133,10 @@ class FeedRepository(private val context: Context) {
     private fun cacheFeeds(feeds: List<Feed>) {
         try {
             val feedsJson = gson.toJson(feeds)
-            sharedPreferences.edit()
-                .putString(CACHE_KEY_FEEDS, feedsJson)
-                .putLong(CACHE_KEY_TIMESTAMP, System.currentTimeMillis())
-                .apply()
+            sharedPreferences.edit {
+                putString(CACHE_KEY_FEEDS, feedsJson)
+                    .putLong(CACHE_KEY_TIMESTAMP, System.currentTimeMillis())
+            }
             android.util.Log.d("FeedRepository", "Feed 数据已缓存，共 ${feeds.size} 条")
         } catch (e: Exception) {
             android.util.Log.e("FeedRepository", "缓存数据失败", e)
@@ -157,11 +159,11 @@ class FeedRepository(private val context: Context) {
      * 清除缓存
      */
     fun clearCache() {
-        sharedPreferences.edit()
-            .remove(CACHE_KEY_FEEDS)
-            .remove(CACHE_KEY_TIMESTAMP)
-            .remove(CACHE_KEY_READ_FEEDS)
-            .apply()
+        sharedPreferences.edit {
+            remove(CACHE_KEY_FEEDS)
+                .remove(CACHE_KEY_TIMESTAMP)
+                .remove(CACHE_KEY_READ_FEEDS)
+        }
         android.util.Log.d("FeedRepository", "Feed 缓存已清除")
     }
     
@@ -171,9 +173,9 @@ class FeedRepository(private val context: Context) {
     fun saveReadFeedIds(readFeedIds: Set<String>) {
         try {
             val readFeedsJson = gson.toJson(readFeedIds.toList())
-            sharedPreferences.edit()
-                .putString(CACHE_KEY_READ_FEEDS, readFeedsJson)
-                .apply()
+            sharedPreferences.edit {
+                putString(CACHE_KEY_READ_FEEDS, readFeedsJson)
+            }
             android.util.Log.d("FeedRepository", "已读状态已保存，共 ${readFeedIds.size} 条")
         } catch (e: Exception) {
             android.util.Log.e("FeedRepository", "保存已读状态失败", e)
