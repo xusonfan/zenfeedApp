@@ -39,6 +39,7 @@ import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -361,6 +362,8 @@ fun FeedsScreen(
     sharedViewModel: com.ddyy.zenfeed.ui.SharedViewModel? = null,
     currentThemeMode: String = "system",
     onThemeToggle: () -> Unit = {},
+    isProxyEnabled: Boolean = false,
+    onProxyToggle: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val feedsUiState = feedsViewModel.feedsUiState
@@ -397,6 +400,8 @@ fun FeedsScreen(
         sharedViewModel = sharedViewModel,
         currentThemeMode = currentThemeMode,
         onThemeToggle = onThemeToggle,
+        isProxyEnabled = isProxyEnabled,
+        onProxyToggle = onProxyToggle,
         modifier = modifier
     )
 }
@@ -419,6 +424,8 @@ fun FeedsScreenContent(
     sharedViewModel: com.ddyy.zenfeed.ui.SharedViewModel? = null,
     currentThemeMode: String = "system",
     onThemeToggle: () -> Unit = {},
+    isProxyEnabled: Boolean = false,
+    onProxyToggle: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
@@ -502,7 +509,9 @@ fun FeedsScreenContent(
                     onSettingsClick()
                 },
                 currentThemeMode = currentThemeMode,
-                onThemeToggle = onThemeToggle
+                onThemeToggle = onThemeToggle,
+                isProxyEnabled = isProxyEnabled,
+                onProxyToggle = onProxyToggle
             )
         }
     ) {
@@ -843,6 +852,8 @@ fun DrawerContent(
     onSettingsClick: () -> Unit,
     currentThemeMode: String = "system",
     onThemeToggle: () -> Unit = {},
+    isProxyEnabled: Boolean = false,
+    onProxyToggle: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     ModalDrawerSheet(
@@ -905,6 +916,14 @@ fun DrawerContent(
                     else -> "未知"
                 },
                 onClick = onThemeToggle
+            )
+            
+            // 代理切换菜单项
+            MenuItemCard(
+                icon = Icons.Default.Security,
+                title = "代理设置",
+                subtitle = if (isProxyEnabled) "代理已启用" else "代理已禁用",
+                onClick = onProxyToggle
             )
             
             // 设置菜单项

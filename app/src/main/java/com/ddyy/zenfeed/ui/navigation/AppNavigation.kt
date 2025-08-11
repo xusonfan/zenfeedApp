@@ -21,6 +21,7 @@ import com.ddyy.zenfeed.ui.player.PlayerViewModel
 import com.ddyy.zenfeed.ui.settings.SettingsScreen
 import com.ddyy.zenfeed.ui.settings.SettingsViewModel
 import com.ddyy.zenfeed.ui.webview.WebViewScreen
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 @Composable
@@ -36,6 +37,9 @@ fun AppNavigation(sharedViewModel: SharedViewModel) {
     
     // 监听主题模式变化
     val currentThemeMode by settingsDataStore.themeMode.collectAsState(initial = "system")
+    
+    // 监听代理启用状态
+    val isProxyEnabled by settingsDataStore.proxyEnabled.collectAsState(initial = false)
 
     // 确保播放器服务在应用启动时就绑定
     DisposableEffect(Unit) {
@@ -114,6 +118,28 @@ fun AppNavigation(sharedViewModel: SharedViewModel) {
                     }
                     coroutineScope.launch {
                         settingsDataStore.saveThemeMode(nextTheme)
+                    }
+                },
+                isProxyEnabled = isProxyEnabled,
+                onProxyToggle = {
+                    // 切换代理启用状态
+                    coroutineScope.launch {
+                        // 获取当前代理设置
+                        val currentHost = settingsDataStore.proxyHost.first()
+                        val currentPort = settingsDataStore.proxyPort.first()
+                        val currentType = settingsDataStore.proxyType.first()
+                        val currentUsername = settingsDataStore.proxyUsername.first()
+                        val currentPassword = settingsDataStore.proxyPassword.first()
+                        
+                        // 保存新的代理设置，只切换启用状态
+                        settingsDataStore.saveProxySettings(
+                            enabled = !isProxyEnabled,
+                            type = currentType,
+                            host = currentHost,
+                            port = currentPort,
+                            username = currentUsername,
+                            password = currentPassword
+                        )
                     }
                 }
             )
