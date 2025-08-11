@@ -1,5 +1,6 @@
 package com.ddyy.zenfeed.ui.feeds
 
+import android.util.Log
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -98,11 +99,11 @@ import kotlinx.coroutines.launch
 fun FeedItem(
     feed: Feed,
     onClick: () -> Unit,
+    modifier: Modifier = Modifier,
     onPlayPodcastList: (() -> Unit)? = null,
     onTogglePlayPause: (() -> Unit)? = null,
     isCurrentlyPlaying: Boolean = false,
-    isPlaying: Boolean = false,
-    modifier: Modifier = Modifier
+    isPlaying: Boolean = false
 ) {
     // 简化卡片设计，减少重绘开销
     Card(
@@ -277,14 +278,14 @@ fun CategoryTabs(
     pagerState: PagerState,
     categories: List<String>,
     onTabSelected: (Int) -> Unit,
-    onTabDoubleClick: (Int) -> Unit = {},
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onTabDoubleClick: (Int) -> Unit = {}
 ) {
     // 使用remember监听categories变化，确保tab栏与数据同步
     val allCategories = remember(categories) { listOf("全部") + categories }
     
     // 双击检测状态 - 为每个tab维护独立的双击状态
-    var lastClickTimes by remember { mutableStateOf(mutableMapOf<Int, Long>()) }
+    var lastClickTimes by remember { mutableStateOf(emptyMap<Int, Long>()) }
     val doubleTapThreshold = 300L // 双击时间间隔阈值（毫秒）
 
     ScrollableTabRow(
@@ -310,15 +311,11 @@ fun CategoryTabs(
                     if (currentTime - lastTime <= doubleTapThreshold) {
                         // 双击事件：滚动到列表顶部
                         onTabDoubleClick(index)
-                        lastClickTimes = lastClickTimes.toMutableMap().apply {
-                            put(index, 0L) // 重置时间避免三击
-                        }
+                        lastClickTimes = lastClickTimes + (index to 0L) // 重置时间避免三击
                     } else {
                         // 单击事件：切换tab
                         onTabSelected(index)
-                        lastClickTimes = lastClickTimes.toMutableMap().apply {
-                            put(index, currentTime)
-                        }
+                        lastClickTimes = lastClickTimes + (index to currentTime)
                     }
                 },
                 text = {
@@ -379,6 +376,7 @@ fun JumpToLastReadButton(
 fun FeedsScreen(
     feedsViewModel: FeedsViewModel,
     onFeedClick: (Feed) -> Unit,
+    modifier: Modifier = Modifier,
     onSettingsClick: () -> Unit = {},
     onLoggingClick: () -> Unit = {},
     onPlayPodcastList: ((List<Feed>, Int) -> Unit)? = null,
@@ -387,8 +385,7 @@ fun FeedsScreen(
     currentThemeMode: String = "system",
     onThemeToggle: () -> Unit = {},
     isProxyEnabled: Boolean = false,
-    onProxyToggle: () -> Unit = {},
-    modifier: Modifier = Modifier
+    onProxyToggle: () -> Unit = {}
 ) {
     val feedsUiState = feedsViewModel.feedsUiState
     val selectedCategory = feedsViewModel.selectedCategory
@@ -447,12 +444,12 @@ fun FeedsScreenContent(
     playerViewModel: PlayerViewModel?,
     listStates: MutableMap<String, LazyStaggeredGridState>,
     scrollPositions: Map<String, Pair<Int, Int>>,
+    modifier: Modifier = Modifier,
     sharedViewModel: com.ddyy.zenfeed.ui.SharedViewModel? = null,
     currentThemeMode: String = "system",
     onThemeToggle: () -> Unit = {},
     isProxyEnabled: Boolean = false,
-    onProxyToggle: () -> Unit = {},
-    modifier: Modifier = Modifier
+    onProxyToggle: () -> Unit = {}
 ) {
     val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
     val coroutineScope = rememberCoroutineScope()
@@ -505,8 +502,21 @@ fun FeedsScreenContent(
         if (!isAtTop) {
             // 如果不在顶部，滚动到顶部
             coroutineScope.launch {
-                currentListState?.animateScrollToItem(0)
-                hasScrolledToTop = true
+                try {
+                    currentListState?.animateScrollToItem(0)
+                    hasScrolledToTop = true
+                } catch (e: kotlinx.coroutines.CancellationException) {
+                    // 检查是否是LeftCompositionCancellationException
+                    if (e.message?.contains("left the composition") == true) {
+                        Log.w("FeedsScreen", "组合已离开，返回键滚动操作被取消", e)
+                        // 不重新抛出LeftCompositionCancellationException
+                    } else {
+                        Log.w("FeedsScreen", "协程被取消，返回键滚动操作终止", e)
+                        throw e
+                    }
+                } catch (e: Exception) {
+                    Log.e("FeedsScreen", "返回键滚动失败", e)
+                }
             }
             Toast.makeText(context, "再次按返回键退出应用", Toast.LENGTH_SHORT).show()
         } else {
@@ -569,10 +579,23 @@ fun FeedsScreenContent(
                                 if (currentTime - lastClickTime <= doubleTapThreshold) {
                                     // 双击事件：滚动到顶部
                                     coroutineScope.launch {
-                                        // 根据 pagerState 获取当前可见的列表状态并滚动
-                                        val categoryToScroll = pagerCategories.getOrNull(pagerState.currentPage)
-                                        val stateToScroll = categoryToScroll?.let { listStates[it] }
-                                        stateToScroll?.animateScrollToItem(0)
+                                        try {
+                                            // 根据 pagerState 获取当前可见的列表状态并滚动
+                                            val categoryToScroll = pagerCategories.getOrNull(pagerState.currentPage)
+                                            val stateToScroll = categoryToScroll?.let { listStates[it] }
+                                            stateToScroll?.animateScrollToItem(0)
+                                        } catch (e: kotlinx.coroutines.CancellationException) {
+                                            // 检查是否是LeftCompositionCancellationException
+                                            if (e.message?.contains("left the composition") == true) {
+                                                Log.w("FeedsScreen", "组合已离开，双击标题滚动操作被取消", e)
+                                                // 不重新抛出LeftCompositionCancellationException
+                                            } else {
+                                                Log.w("FeedsScreen", "协程被取消，双击标题滚动操作终止", e)
+                                                throw e
+                                            }
+                                        } catch (e: Exception) {
+                                            Log.e("FeedsScreen", "双击标题滚动失败", e)
+                                        }
                                     }
                                     lastClickTime = 0L // 重置时间避免三击
                                 } else {
@@ -641,22 +664,35 @@ fun FeedsScreenContent(
                         onTabDoubleClick = { page ->
                             // 双击tab时滚动到对应分类的列表顶部
                             coroutineScope.launch {
-                                // 确保pager已经切换到正确页面
-                                if (pagerState.currentPage != page) {
-                                    pagerState.animateScrollToPage(page)
-                                    // 等待页面切换完成
-                                    kotlinx.coroutines.delay(300)
+                                try {
+                                    // 确保pager已经切换到正确页面
+                                    if (pagerState.currentPage != page) {
+                                        pagerState.animateScrollToPage(page)
+                                        // 等待页面切换完成
+                                        kotlinx.coroutines.delay(300)
+                                    }
+                                    
+                                    // 获取对应分类的列表状态并滚动到顶部
+                                    val allCategories = listOf("") + feedsUiState.categories
+                                    val category = if (page < allCategories.size) {
+                                        allCategories[page]
+                                    } else {
+                                        "" // 默认为全部分类
+                                    }
+                                    val listState = listStates[category]
+                                    listState?.animateScrollToItem(0)
+                                } catch (e: kotlinx.coroutines.CancellationException) {
+                                    // 检查是否是LeftCompositionCancellationException
+                                    if (e.message?.contains("left the composition") == true) {
+                                        Log.w("FeedsScreen", "组合已离开，双击Tab滚动操作被取消", e)
+                                        // 不重新抛出LeftCompositionCancellationException
+                                    } else {
+                                        Log.w("FeedsScreen", "协程被取消，双击Tab滚动操作终止", e)
+                                        throw e
+                                    }
+                                } catch (e: Exception) {
+                                    Log.e("FeedsScreen", "双击Tab滚动失败", e)
                                 }
-                                
-                                // 获取对应分类的列表状态并滚动到顶部
-                                val allCategories = listOf("") + feedsUiState.categories
-                                val category = if (page < allCategories.size) {
-                                    allCategories[page]
-                                } else {
-                                    "" // 默认为全部分类
-                                }
-                                val listState = listStates[category]
-                                listState?.animateScrollToItem(0)
                             }
                         }
                     )
@@ -677,21 +713,21 @@ fun FeedsScreenContent(
                     
                     // 处理返回时的滚动定位 - 检测页面重新进入
                     LaunchedEffect(Unit) {
-                        android.util.Log.d("FeedsScreen", "FeedsScreen 页面进入，检查是否需要滚动")
+                        Log.d("FeedsScreen", "FeedsScreen 页面进入，检查是否需要滚动")
                         
                         // 检查是否有待处理的滚动任务
                         if (sharedViewModel?.lastViewedFeed != null && !sharedViewModel.lastViewedFeed?.labels?.title.isNullOrEmpty()) {
                             val targetCategory = sharedViewModel.detailEntryCategory
                             val lastViewedFeed = sharedViewModel.lastViewedFeed!!
                             
-                            android.util.Log.d("FeedsScreen", "检测到从详情页返回，准备滚动到文章: ${lastViewedFeed.labels.title}, 分类: '$targetCategory', 当前分类: '$selectedCategory'")
+                            Log.d("FeedsScreen", "检测到从详情页返回，准备滚动到文章: ${lastViewedFeed.labels.title}, 分类: '$targetCategory', 当前分类: '$selectedCategory'")
                             
                             // 等待UI完全加载
                             kotlinx.coroutines.delay(200)
                             
                             // 确保切换到正确的分类
                             if (targetCategory != selectedCategory) {
-                                android.util.Log.d("FeedsScreen", "切换分类从 '$selectedCategory' 到 '$targetCategory'")
+                                Log.d("FeedsScreen", "切换分类从 '$selectedCategory' 到 '$targetCategory'")
                                 onCategorySelected(targetCategory)
                                 // 等待分类切换和Pager动画完成
                                 kotlinx.coroutines.delay(800)
@@ -704,25 +740,34 @@ fun FeedsScreenContent(
                             val targetFeeds = categorizedFeeds[targetCategory] ?: emptyList()
                             val targetIndex = sharedViewModel.getLastViewedFeedIndexInCategory(targetFeeds)
                             
-                            android.util.Log.d("FeedsScreen", "目标索引: $targetIndex, 总数: ${targetFeeds.size}")
-                            android.util.Log.d("FeedsScreen", "目标文章标题: ${targetFeeds.getOrNull(targetIndex)?.labels?.title}")
+                            Log.d("FeedsScreen", "目标索引: $targetIndex, 总数: ${targetFeeds.size}")
+                            Log.d("FeedsScreen", "目标文章标题: ${targetFeeds.getOrNull(targetIndex)?.labels?.title}")
                             
                             if (targetIndex >= 0 && targetIndex < targetFeeds.size) {
                                 // 确保listState存在并且是当前正确的状态
                                 val listState = listStates[targetCategory]
                                 if (listState != null) {
                                     try {
-                                        android.util.Log.d("FeedsScreen", "开始滚动到索引: $targetIndex")
+                                        Log.d("FeedsScreen", "开始滚动到索引: $targetIndex")
                                         listState.animateScrollToItem(targetIndex)
-                                        android.util.Log.d("FeedsScreen", "滚动完成")
+                                        Log.d("FeedsScreen", "滚动完成")
+                                    } catch (e: kotlinx.coroutines.CancellationException) {
+                                        // 检查是否是LeftCompositionCancellationException
+                                        if (e.message?.contains("left the composition") == true) {
+                                            Log.w("FeedsScreen", "组合已离开，滚动操作被取消", e)
+                                            // 不重新抛出LeftCompositionCancellationException
+                                        } else {
+                                            Log.w("FeedsScreen", "协程被取消，滚动操作终止", e)
+                                            throw e
+                                        }
                                     } catch (e: Exception) {
-                                        android.util.Log.e("FeedsScreen", "滚动失败", e)
+                                        Log.e("FeedsScreen", "滚动失败", e)
                                     }
                                 } else {
-                                    android.util.Log.w("FeedsScreen", "ListState 不存在: '$targetCategory'")
+                                    Log.w("FeedsScreen", "ListState 不存在: '$targetCategory'")
                                 }
                             } else {
-                                android.util.Log.w("FeedsScreen", "无效的目标索引: $targetIndex")
+                                Log.w("FeedsScreen", "无效的目标索引: $targetIndex")
                             }
                             
                             // 清除滚动状态，避免重复触发
@@ -819,7 +864,20 @@ fun FeedsScreenContent(
                                 JumpToLastReadButton(
                                     onClick = {
                                         coroutineScope.launch {
-                                            listState.animateScrollToItem(lastReadIndex)
+                                            try {
+                                                listState.animateScrollToItem(lastReadIndex)
+                                            } catch (e: kotlinx.coroutines.CancellationException) {
+                                                // 检查是否是LeftCompositionCancellationException
+                                                if (e.message?.contains("left the composition") == true) {
+                                                    Log.w("FeedsScreen", "组合已离开，跳转到最近阅读操作被取消", e)
+                                                    // 不重新抛出LeftCompositionCancellationException
+                                                } else {
+                                                    Log.w("FeedsScreen", "协程被取消，跳转到最近阅读操作终止", e)
+                                                    throw e
+                                                }
+                                            } catch (e: Exception) {
+                                                Log.e("FeedsScreen", "跳转到最近阅读失败", e)
+                                            }
                                         }
                                     },
                                     modifier = Modifier
@@ -903,12 +961,12 @@ fun MenuItemCard(
 @Composable
 fun DrawerContent(
     onSettingsClick: () -> Unit,
+    modifier: Modifier = Modifier,
     onLoggingClick: () -> Unit = {},
     currentThemeMode: String = "system",
     onThemeToggle: () -> Unit = {},
     isProxyEnabled: Boolean = false,
-    onProxyToggle: () -> Unit = {},
-    modifier: Modifier = Modifier
+    onProxyToggle: () -> Unit = {}
 ) {
     ModalDrawerSheet(
         modifier = modifier.widthIn(max = 280.dp),
