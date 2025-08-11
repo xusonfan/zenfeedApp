@@ -30,8 +30,12 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Article
+import androidx.compose.material.icons.filled.AutoMode
+import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.LastPage
+import androidx.compose.material.icons.filled.LightMode
+import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
@@ -41,6 +45,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FloatingActionButton
@@ -48,6 +53,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalDrawerSheet
+import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.ScrollableTabRow
 import androidx.compose.material3.Tab
@@ -57,6 +64,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
+import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -351,6 +359,8 @@ fun FeedsScreen(
     onPlayPodcastList: ((List<Feed>, Int) -> Unit)? = null,
     playerViewModel: PlayerViewModel? = null,
     sharedViewModel: com.ddyy.zenfeed.ui.SharedViewModel? = null,
+    currentThemeMode: String = "system",
+    onThemeToggle: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val feedsUiState = feedsViewModel.feedsUiState
@@ -385,6 +395,8 @@ fun FeedsScreen(
         listStates = listStates,
         scrollPositions = feedsViewModel.scrollPositions,
         sharedViewModel = sharedViewModel,
+        currentThemeMode = currentThemeMode,
+        onThemeToggle = onThemeToggle,
         modifier = modifier
     )
 }
@@ -405,11 +417,16 @@ fun FeedsScreenContent(
     listStates: MutableMap<String, LazyStaggeredGridState>,
     scrollPositions: Map<String, Pair<Int, Int>>,
     sharedViewModel: com.ddyy.zenfeed.ui.SharedViewModel? = null,
+    currentThemeMode: String = "system",
+    onThemeToggle: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
     val coroutineScope = rememberCoroutineScope()
     val context = LocalContext.current
+    
+    // 抽屉状态管理
+    val drawerState = rememberDrawerState(DrawerValue.Closed)
     
     // 返回键拦截状态
     var lastBackPressTime by remember { mutableLongStateOf(0L) }
@@ -473,9 +490,25 @@ fun FeedsScreenContent(
         }
     }
 
-    Scaffold(
-        modifier = modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
-        topBar = {
+    // 使用 ModalNavigationDrawer 包装整个内容
+    ModalNavigationDrawer(
+        drawerState = drawerState,
+        drawerContent = {
+            DrawerContent(
+                onSettingsClick = {
+                    coroutineScope.launch {
+                        drawerState.close()
+                    }
+                    onSettingsClick()
+                },
+                currentThemeMode = currentThemeMode,
+                onThemeToggle = onThemeToggle
+            )
+        }
+    ) {
+        Scaffold(
+            modifier = modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
+            topBar = {
             Column {
                 // 现代化的顶部应用栏
                 CenterAlignedTopAppBar(
@@ -507,11 +540,17 @@ fun FeedsScreenContent(
                             }
                         )
                     },
-                    actions = {
-                        IconButton(onClick = onSettingsClick) {
+                    navigationIcon = {
+                        IconButton(
+                            onClick = {
+                                coroutineScope.launch {
+                                    drawerState.open()
+                                }
+                            }
+                        ) {
                             Icon(
-                                imageVector = Icons.Default.Settings,
-                                contentDescription = "设置",
+                                imageVector = Icons.Default.Menu,
+                                contentDescription = "菜单",
                                 tint = MaterialTheme.colorScheme.onSurface
                             )
                         }
@@ -727,10 +766,165 @@ fun FeedsScreenContent(
                                 )
                             }
                         }
+                        }
                     }
                 }
             }
         }
+    }
+}
+
+/**
+ * 菜单项卡片组件
+ */
+@Composable
+fun MenuItemCard(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    title: String,
+    subtitle: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .clickable { onClick() }
+            .background(
+                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f),
+                shape = RoundedCornerShape(12.dp)
+            )
+            .padding(16.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        // 图标背景
+        Box(
+            modifier = Modifier
+                .size(40.dp)
+                .background(
+                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
+                    shape = CircleShape
+                ),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = title,
+                modifier = Modifier.size(20.dp),
+                tint = MaterialTheme.colorScheme.primary
+            )
+        }
+        
+        Spacer(modifier = Modifier.width(16.dp))
+        
+        Column(
+            modifier = Modifier.weight(1f)
+        ) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.bodyLarge.copy(
+                    fontWeight = FontWeight.Medium
+                ),
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Text(
+                text = subtitle,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
+
+/**
+ * 抽屉菜单内容组件
+ */
+@Composable
+fun DrawerContent(
+    onSettingsClick: () -> Unit,
+    currentThemeMode: String = "system",
+    onThemeToggle: () -> Unit = {},
+    modifier: Modifier = Modifier
+) {
+    ModalDrawerSheet(
+        modifier = modifier.widthIn(max = 280.dp),
+        drawerContainerColor = MaterialTheme.colorScheme.surface,
+        drawerContentColor = MaterialTheme.colorScheme.onSurface
+    ) {
+        // 抽屉头部 - 扩展到状态栏区域
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(200.dp) // 增加高度以覆盖状态栏区域
+                .background(
+                    MaterialTheme.colorScheme.primary
+                ),
+            contentAlignment = Alignment.Center
+        ) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.padding(top = 24.dp) // 为状态栏留出空间
+            ) {
+                Text(
+                    text = "Zenfeed",
+                    style = MaterialTheme.typography.headlineLarge.copy(
+                        fontWeight = FontWeight.ExtraBold,
+                        letterSpacing = 1.2.sp
+                    ),
+                    color = MaterialTheme.colorScheme.onPrimary
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "精选资讯阅读",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.9f)
+                )
+            }
+        }
+        
+        Spacer(modifier = Modifier.height(16.dp))
+        
+        // 菜单项分组
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            // 主题切换菜单项
+            MenuItemCard(
+                icon = when (currentThemeMode) {
+                    "light" -> Icons.Default.LightMode
+                    "dark" -> Icons.Default.DarkMode
+                    else -> Icons.Default.AutoMode // 跟随系统使用自动模式图标
+                },
+                title = "主题模式",
+                subtitle = when (currentThemeMode) {
+                    "light" -> "日间模式"
+                    "dark" -> "夜间模式"
+                    "system" -> "跟随系统"
+                    else -> "未知"
+                },
+                onClick = onThemeToggle
+            )
+            
+            // 设置菜单项
+            MenuItemCard(
+                icon = Icons.Default.Settings,
+                title = "设置",
+                subtitle = "应用设置和配置",
+                onClick = onSettingsClick
+            )
+        }
+        
+        Spacer(modifier = Modifier.weight(1f))
+        
+        // 底部信息
+        Text(
+            text = "版本 1.0.0",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+            modifier = Modifier.padding(horizontal = 24.dp, vertical = 16.dp)
+        )
     }
 }
 

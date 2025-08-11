@@ -3,10 +3,15 @@ package com.ddyy.zenfeed.ui.navigation
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import com.ddyy.zenfeed.data.SettingsDataStore
 import com.ddyy.zenfeed.ui.SharedViewModel
 import com.ddyy.zenfeed.ui.feeds.FeedDetailScreen
 import com.ddyy.zenfeed.ui.feeds.FeedsScreen
@@ -16,6 +21,7 @@ import com.ddyy.zenfeed.ui.player.PlayerViewModel
 import com.ddyy.zenfeed.ui.settings.SettingsScreen
 import com.ddyy.zenfeed.ui.settings.SettingsViewModel
 import com.ddyy.zenfeed.ui.webview.WebViewScreen
+import kotlinx.coroutines.launch
 
 @Composable
 fun AppNavigation(sharedViewModel: SharedViewModel) {
@@ -23,6 +29,13 @@ fun AppNavigation(sharedViewModel: SharedViewModel) {
     val playerViewModel: PlayerViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
     val feedsViewModel: FeedsViewModel = androidx.lifecycle.viewmodel.compose.viewModel() // 共享的FeedsViewModel
     val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
+    
+    // 创建SettingsDataStore实例
+    val settingsDataStore = remember { SettingsDataStore(context) }
+    
+    // 监听主题模式变化
+    val currentThemeMode by settingsDataStore.themeMode.collectAsState(initial = "system")
 
     // 确保播放器服务在应用启动时就绑定
     DisposableEffect(Unit) {
@@ -89,7 +102,20 @@ fun AppNavigation(sharedViewModel: SharedViewModel) {
                     }
                 },
                 playerViewModel = playerViewModel,
-                sharedViewModel = sharedViewModel
+                sharedViewModel = sharedViewModel,
+                currentThemeMode = currentThemeMode,
+                onThemeToggle = {
+                    // 循环切换主题：system -> light -> dark -> system
+                    val nextTheme = when (currentThemeMode) {
+                        "system" -> "light"
+                        "light" -> "dark"
+                        "dark" -> "system"
+                        else -> "system"
+                    }
+                    coroutineScope.launch {
+                        settingsDataStore.saveThemeMode(nextTheme)
+                    }
+                }
             )
         }
         composable("feedDetail") {
