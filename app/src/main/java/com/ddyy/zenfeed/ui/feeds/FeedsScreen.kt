@@ -1,5 +1,7 @@
 package com.ddyy.zenfeed.ui.feeds
 
+import android.widget.Toast
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -67,6 +69,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
@@ -361,6 +364,12 @@ fun FeedsScreenContent(
 ) {
     val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
     val coroutineScope = rememberCoroutineScope()
+    val context = LocalContext.current
+    
+    // 返回键拦截状态
+    var lastBackPressTime by remember { mutableLongStateOf(0L) }
+    var hasScrolledToTop by remember { mutableStateOf(false) }
+    val backPressThreshold = 2000L // 两次返回键间隔阈值（2秒）
 
     // Pager 状态
     val pagerCategories = (feedsUiState as? FeedsUiState.Success)?.let { listOf("") + it.categories } ?: listOf("")
@@ -387,6 +396,37 @@ fun FeedsScreenContent(
     // 双击检测状态
     var lastClickTime by remember { mutableLongStateOf(0L) }
     val doubleTapThreshold = 300L // 双击时间间隔阈值（毫秒）
+    
+    // 返回键处理逻辑
+    BackHandler {
+        val currentTime = System.currentTimeMillis()
+        val currentCategory = pagerCategories.getOrNull(pagerState.currentPage) ?: ""
+        val currentListState = listStates[currentCategory]
+        
+        // 检查当前是否在列表顶部
+        val isAtTop = currentListState?.firstVisibleItemIndex == 0 &&
+                     currentListState.firstVisibleItemScrollOffset == 0
+        
+        if (!isAtTop) {
+            // 如果不在顶部，滚动到顶部
+            coroutineScope.launch {
+                currentListState?.animateScrollToItem(0)
+                hasScrolledToTop = true
+            }
+            Toast.makeText(context, "再次按返回键退出应用", Toast.LENGTH_SHORT).show()
+        } else {
+            // 如果已经在顶部，检查是否在时间阈值内
+            if (currentTime - lastBackPressTime <= backPressThreshold) {
+                // 在阈值内，真正退出应用
+                (context as? androidx.activity.ComponentActivity)?.finish()
+            } else {
+                // 超过阈值，显示提示并更新时间
+                lastBackPressTime = currentTime
+                hasScrolledToTop = false
+                Toast.makeText(context, "再次按返回键退出应用", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
 
     Scaffold(
         modifier = modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
