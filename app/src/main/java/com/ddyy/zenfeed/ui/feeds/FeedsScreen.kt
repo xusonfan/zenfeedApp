@@ -31,6 +31,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Article
 import androidx.compose.material.icons.filled.ErrorOutline
+import androidx.compose.material.icons.filled.LastPage
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
@@ -42,6 +43,7 @@ import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
@@ -59,6 +61,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Stable
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.runtime.mutableLongStateOf
@@ -298,6 +301,45 @@ fun CategoryTabs(
     }
 }
 
+/**
+ * 获取最近阅读的条目索引
+ */
+fun getLastReadFeedIndex(feeds: List<Feed>): Int? {
+    // 找到最后一个已读的条目（按列表顺序）
+    return feeds.indexOfLast { it.isRead }.takeIf { it >= 0 }
+}
+
+/**
+ * 跳转到最近阅读按钮组件
+ */
+@Composable
+fun JumpToLastReadButton(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    FloatingActionButton(
+        onClick = onClick,
+        modifier = modifier,
+        containerColor = MaterialTheme.colorScheme.primaryContainer,
+        contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.padding(horizontal = 16.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Default.LastPage,
+                contentDescription = "跳转到最近阅读",
+                modifier = Modifier.size(18.dp)
+            )
+            Text(
+                text = "最近阅读",
+                style = MaterialTheme.typography.labelMedium
+            )
+        }
+    }
+}
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
@@ -556,46 +598,75 @@ fun FeedsScreenContent(
                         }
                         val pullToRefreshState = rememberPullToRefreshState()
 
-                        PullToRefreshBox(
-                            state = pullToRefreshState,
-                            isRefreshing = isRefreshing,
-                            onRefresh = onRefresh,
-                            modifier = Modifier.fillMaxSize()
-                        ) {
-                            LazyVerticalStaggeredGrid(
-                                columns = StaggeredGridCells.Adaptive(minSize = 200.dp),
-                                state = listState,
-                                modifier = Modifier.fillMaxSize(),
-                                contentPadding = PaddingValues(12.dp),
-                                verticalItemSpacing = 12.dp,
-                                horizontalArrangement = Arrangement.spacedBy(12.dp)
-                            ) {
-                                items(
-                                    items = feedsForCategory,
-                                    key = { feed -> "${feed.labels.title ?: "unknown"}-${feed.time}" },
-                                    contentType = { "FeedItem" }
-                                ) { feed ->
-                                    val isCurrentlyPlaying = currentPlaylist.any {
-                                        it.labels.podcastUrl == feed.labels.podcastUrl && !feed.labels.podcastUrl.isNullOrBlank()
-                                    } && playlistInfo?.let { info ->
-                                        info.currentIndex >= 0 &&
-                                                info.currentIndex < currentPlaylist.size &&
-                                                currentPlaylist[info.currentIndex].labels.podcastUrl == feed.labels.podcastUrl
-                                    } == true
+                        // 检测是否在列表顶部
+                        val isAtTop by remember {
+                            derivedStateOf {
+                                listState.firstVisibleItemIndex == 0 &&
+                                listState.firstVisibleItemScrollOffset == 0
+                            }
+                        }
+                        
+                        // 获取最近阅读的条目索引
+                        val lastReadIndex = remember(feedsForCategory) {
+                            getLastReadFeedIndex(feedsForCategory)
+                        }
 
-                                    FeedItem(
-                                        feed = feed,
-                                        onClick = { onFeedClick(feed) },
-                                        onPlayPodcastList = if (!feed.labels.podcastUrl.isNullOrBlank()) {
-                                            { onPlayPodcastList?.invoke(feedsUiState.feeds, feedsUiState.feeds.indexOf(feed)) }
-                                        } else null,
-                                        onTogglePlayPause = if (!feed.labels.podcastUrl.isNullOrBlank()) {
-                                            { playerViewModel?.togglePlayPause() }
-                                        } else null,
-                                        isCurrentlyPlaying = isCurrentlyPlaying,
-                                        isPlaying = isPlaying
-                                    )
+                        Box(modifier = Modifier.fillMaxSize()) {
+                            PullToRefreshBox(
+                                state = pullToRefreshState,
+                                isRefreshing = isRefreshing,
+                                onRefresh = onRefresh,
+                                modifier = Modifier.fillMaxSize()
+                            ) {
+                                LazyVerticalStaggeredGrid(
+                                    columns = StaggeredGridCells.Adaptive(minSize = 200.dp),
+                                    state = listState,
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentPadding = PaddingValues(12.dp),
+                                    verticalItemSpacing = 12.dp,
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                ) {
+                                    items(
+                                        items = feedsForCategory,
+                                        key = { feed -> "${feed.labels.title ?: "unknown"}-${feed.time}" },
+                                        contentType = { "FeedItem" }
+                                    ) { feed ->
+                                        val isCurrentlyPlaying = currentPlaylist.any {
+                                            it.labels.podcastUrl == feed.labels.podcastUrl && !feed.labels.podcastUrl.isNullOrBlank()
+                                        } && playlistInfo?.let { info ->
+                                            info.currentIndex >= 0 &&
+                                                    info.currentIndex < currentPlaylist.size &&
+                                                    currentPlaylist[info.currentIndex].labels.podcastUrl == feed.labels.podcastUrl
+                                        } == true
+
+                                        FeedItem(
+                                            feed = feed,
+                                            onClick = { onFeedClick(feed) },
+                                            onPlayPodcastList = if (!feed.labels.podcastUrl.isNullOrBlank()) {
+                                                { onPlayPodcastList?.invoke(feedsUiState.feeds, feedsUiState.feeds.indexOf(feed)) }
+                                            } else null,
+                                            onTogglePlayPause = if (!feed.labels.podcastUrl.isNullOrBlank()) {
+                                                { playerViewModel?.togglePlayPause() }
+                                            } else null,
+                                            isCurrentlyPlaying = isCurrentlyPlaying,
+                                            isPlaying = isPlaying
+                                        )
+                                    }
                                 }
+                            }
+                            
+                            // 显示"跳转到最近阅读"按钮
+                            if (isAtTop && lastReadIndex != null && lastReadIndex > 0) {
+                                JumpToLastReadButton(
+                                    onClick = {
+                                        coroutineScope.launch {
+                                            listState.animateScrollToItem(lastReadIndex)
+                                        }
+                                    },
+                                    modifier = Modifier
+                                        .align(Alignment.BottomCenter)
+                                        .padding(bottom = 16.dp)
+                                )
                             }
                         }
                     }
