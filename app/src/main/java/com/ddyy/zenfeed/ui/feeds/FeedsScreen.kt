@@ -808,7 +808,10 @@ fun FeedsScreenContent(
         ) {
             when (feedsUiState) {
                 is FeedsUiState.Loading -> ModernLoadingScreen(Modifier.fillMaxSize())
-                is FeedsUiState.Error -> ModernErrorScreen(Modifier.fillMaxSize())
+                is FeedsUiState.Error -> ModernErrorScreen(
+                    modifier = Modifier.fillMaxSize(),
+                    onRetry = onRefresh
+                )
                 is FeedsUiState.Success -> {
                     // 确保 allCategories 与 pagerCategories 保持一致
                     val allCategories = remember(feedsUiState.categories) {
@@ -1291,7 +1294,10 @@ fun ModernLoadingScreen(modifier: Modifier = Modifier) {
 }
 
 @Composable
-fun ModernErrorScreen(modifier: Modifier = Modifier) {
+fun ModernErrorScreen(
+    modifier: Modifier = Modifier,
+    onRetry: () -> Unit = {}
+) {
     Column(
         modifier = modifier.fillMaxSize(),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -1338,7 +1344,7 @@ fun ModernErrorScreen(modifier: Modifier = Modifier) {
         
         // 现代化重试按钮
         FilledTonalButton(
-            onClick = { /* TODO: 实现重试逻辑 */ },
+            onClick = onRetry,
             modifier = Modifier
                 .height(48.dp)
                 .widthIn(min = 120.dp),
@@ -1476,6 +1482,8 @@ fun ModernLoadingScreenPreview() {
 @Composable
 fun ModernErrorScreenPreview() {
     MaterialTheme {
-        ModernErrorScreen()
+        ModernErrorScreen(
+            onRetry = { /* 预览中的重试逻辑 */ }
+        )
     }
 }
