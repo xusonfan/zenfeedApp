@@ -73,6 +73,9 @@ dependencies {
     
     // DataStore 用于数据存储
     implementation(libs.androidx.datastore.preferences)
+    
+    // Kotlin DateTime 用于现代时间处理
+    implementation(libs.kotlinx.datetime)
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

@@ -10,9 +10,8 @@ import androidx.lifecycle.viewModelScope
 import com.ddyy.zenfeed.data.Feed
 import com.ddyy.zenfeed.data.FeedRepository
 import kotlinx.coroutines.launch
-import java.text.SimpleDateFormat
-import java.util.Locale
-import java.util.TimeZone.getTimeZone
+import kotlin.time.ExperimentalTime
+import kotlin.time.Instant
 
 sealed interface FeedsUiState {
     data class Success(val feeds: List<Feed>, val categories: List<String>) : FeedsUiState
@@ -192,24 +191,8 @@ class FeedsViewModel(application: Application) : AndroidViewModel(application) {
                 feed.copy(isRead = isFeedRead(feed))
             }
             .sortedByDescending { feed ->
-                // 尝试解析时间字符串进行排序，解析失败则使用当前时间
-                try {
-                    // 假设时间格式是 ISO 8601 格式
-                    val format = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US)
-                    format.timeZone = getTimeZone("UTC")
-                    format.parse(feed.time)?.time ?: 0L
-                } catch (e: Exception) {
-                    // 如果解析失败，尝试其他常见格式
-                    try {
-                        val format2 = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US)
-                        format2.timeZone = getTimeZone("UTC")
-                        format2.parse(feed.time)?.time ?: 0L
-                    } catch (e2: Exception) {
-                        // 最后尝试直接比较字符串（如果是标准 ISO 格式，字符串比较也是有效的）
-                        Log.w("FeedsViewModel", "无法解析时间格式: ${feed.time}, 使用字符串比较")
-                        0L
-                    }
-                }
+                // 使用更强大的时间解析函数
+                parseTimeToLong(feed.time)
             }
         
         val categories = allFeeds
@@ -224,5 +207,50 @@ class FeedsViewModel(application: Application) : AndroidViewModel(application) {
         )
         
         Log.d("FeedsViewModel", "Feed列表已按时间倒序排序，共 ${feedsWithReadStatus.size} 条")
+    }
+    
+    /**
+     * 解析时间字符串为长整型时间戳，支持多种格式包括纳秒和时区
+     */
+    @OptIn(ExperimentalTime::class)
+    private fun parseTimeToLong(timeString: String): Long {
+        return try {
+            // kotlinx-datetime 的 Instant.parse() 可以自动处理各种 ISO 8601 格式
+            // 包括纳秒精度和时区信息，如: 2025-08-11T08:14:51.583598089+08:00
+            val instant = Instant.parse(timeString)
+            val epochMillis = instant.toEpochMilliseconds()
+            Log.d("FeedsViewModel", "时间解析成功: $timeString -> $epochMillis (使用 kotlinx-datetime)")
+            epochMillis
+        } catch (e: Exception) {
+            Log.d("FeedsViewModel", "kotlinx-datetime 解析失败: $timeString, 尝试备用方案")
+            
+            // 备用方案1：尝试使用 Android Time 类
+            try {
+                val time = android.text.format.Time()
+                if (time.parse3339(timeString)) {
+                    val millis = time.toMillis(false)
+                    Log.d("FeedsViewModel", "时间解析成功: $timeString -> $millis (使用 Time.parse3339)")
+                    return millis
+                }
+            } catch (e2: Exception) {
+                Log.d("FeedsViewModel", "Time.parse3339 也解析失败: $timeString")
+            }
+            
+            // 备用方案2：基于数字提取的排序值
+            try {
+                val cleanTime = timeString.replace(Regex("[^\\d]"), "").take(14)
+                val result = if (cleanTime.length >= 8) {
+                    cleanTime.toLongOrNull() ?: timeString.hashCode().toLong()
+                } else {
+                    timeString.hashCode().toLong()
+                }
+                Log.d("FeedsViewModel", "时间解析使用数字提取: $timeString -> 清理后: $cleanTime -> 结果: $result")
+                result
+            } catch (e3: Exception) {
+                val hashResult = timeString.hashCode().toLong()
+                Log.w("FeedsViewModel", "时间解析最终使用散列值: $timeString -> $hashResult")
+                hashResult
+            }
+        }
     }
 }
