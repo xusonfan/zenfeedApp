@@ -1,6 +1,7 @@
 package com.ddyy.zenfeed.ui.feeds
 
 import android.app.Application
+import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -9,6 +10,9 @@ import androidx.lifecycle.viewModelScope
 import com.ddyy.zenfeed.data.Feed
 import com.ddyy.zenfeed.data.FeedRepository
 import kotlinx.coroutines.launch
+import java.text.SimpleDateFormat
+import java.util.Locale
+import java.util.TimeZone.getTimeZone
 
 sealed interface FeedsUiState {
     data class Success(val feeds: List<Feed>, val categories: List<String>) : FeedsUiState
@@ -61,7 +65,7 @@ class FeedsViewModel(application: Application) : AndroidViewModel(application) {
         val persistedReadIds = feedRepository.getReadFeedIds()
         readFeedIds.clear()
         readFeedIds.addAll(persistedReadIds)
-        android.util.Log.d("FeedsViewModel", "已加载已读状态，共 ${readFeedIds.size} 条")
+        Log.d("FeedsViewModel", "已加载已读状态，共 ${readFeedIds.size} 条")
     }
     
     /**
@@ -74,7 +78,7 @@ class FeedsViewModel(application: Application) : AndroidViewModel(application) {
             if (cachedFeeds != null && cachedFeeds.isNotEmpty()) {
                 allFeeds = cachedFeeds
                 updateFilteredFeeds()
-                android.util.Log.d("FeedsViewModel", "已加载缓存数据，共 ${cachedFeeds.size} 条")
+                Log.d("FeedsViewModel", "已加载缓存数据，共 ${cachedFeeds.size} 条")
             }
         }
     }
@@ -98,7 +102,7 @@ class FeedsViewModel(application: Application) : AndroidViewModel(application) {
                 if (newFeeds != allFeeds) { // 只有数据不同时才更新
                     allFeeds = newFeeds
                     updateFilteredFeeds()
-                    android.util.Log.d("FeedsViewModel", "已更新网络数据，共 ${newFeeds.size} 条")
+                    Log.d("FeedsViewModel", "已更新网络数据，共 ${newFeeds.size} 条")
                 }
             } else {
                 // 如果网络获取失败但有缓存数据，不改变当前状态
@@ -123,7 +127,7 @@ class FeedsViewModel(application: Application) : AndroidViewModel(application) {
                 val newFeeds = result.getOrNull()?.feeds ?: emptyList()
                 allFeeds = newFeeds
                 updateFilteredFeeds()
-                android.util.Log.d("FeedsViewModel", "刷新完成，共 ${newFeeds.size} 条")
+                Log.d("FeedsViewModel", "刷新完成，共 ${newFeeds.size} 条")
             } else {
                 // 刷新失败时保持当前数据不变
                 if (allFeeds.isEmpty()) {
@@ -152,7 +156,7 @@ class FeedsViewModel(application: Application) : AndroidViewModel(application) {
             // 立即持久化到存储
             feedRepository.addReadFeedId(feedId)
             updateFilteredFeeds() // 重新更新UI以反映阅读状态变化
-            android.util.Log.d("FeedsViewModel", "标记文章为已读: ${feed.labels.title ?: "未知标题"}")
+            Log.d("FeedsViewModel", "标记文章为已读: ${feed.labels.title ?: "未知标题"}")
         }
     }
     
@@ -166,7 +170,7 @@ class FeedsViewModel(application: Application) : AndroidViewModel(application) {
             // 立即从持久化存储中移除
             feedRepository.removeReadFeedId(feedId)
             updateFilteredFeeds() // 重新更新UI以反映阅读状态变化
-            android.util.Log.d("FeedsViewModel", "标记文章为未读: ${feed.labels.title ?: "未知标题"}")
+            Log.d("FeedsViewModel", "标记文章为未读: ${feed.labels.title ?: "未知标题"}")
         }
     }
     
@@ -182,10 +186,31 @@ class FeedsViewModel(application: Application) : AndroidViewModel(application) {
      * 更新筛选后的Feed列表
      */
     private fun updateFilteredFeeds() {
-        // 为所有Feed设置正确的阅读状态
-        val feedsWithReadStatus = allFeeds.map { feed ->
-            feed.copy(isRead = isFeedRead(feed))
-        }
+        // 为所有Feed设置正确的阅读状态并按时间倒序排序
+        val feedsWithReadStatus = allFeeds
+            .map { feed ->
+                feed.copy(isRead = isFeedRead(feed))
+            }
+            .sortedByDescending { feed ->
+                // 尝试解析时间字符串进行排序，解析失败则使用当前时间
+                try {
+                    // 假设时间格式是 ISO 8601 格式
+                    val format = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US)
+                    format.timeZone = getTimeZone("UTC")
+                    format.parse(feed.time)?.time ?: 0L
+                } catch (e: Exception) {
+                    // 如果解析失败，尝试其他常见格式
+                    try {
+                        val format2 = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US)
+                        format2.timeZone = getTimeZone("UTC")
+                        format2.parse(feed.time)?.time ?: 0L
+                    } catch (e2: Exception) {
+                        // 最后尝试直接比较字符串（如果是标准 ISO 格式，字符串比较也是有效的）
+                        Log.w("FeedsViewModel", "无法解析时间格式: ${feed.time}, 使用字符串比较")
+                        0L
+                    }
+                }
+            }
         
         val categories = allFeeds
             .mapNotNull { it.labels.category }
@@ -194,8 +219,10 @@ class FeedsViewModel(application: Application) : AndroidViewModel(application) {
             .sorted()
         
         feedsUiState = FeedsUiState.Success(
-            feeds = feedsWithReadStatus, // 始终返回完整的列表
+            feeds = feedsWithReadStatus, // 返回按时间倒序排序的列表
             categories = categories
         )
+        
+        Log.d("FeedsViewModel", "Feed列表已按时间倒序排序，共 ${feedsWithReadStatus.size} 条")
     }
 }
