@@ -98,6 +98,7 @@ import com.ddyy.zenfeed.data.Feed
 import com.ddyy.zenfeed.data.Labels
 import com.ddyy.zenfeed.ui.player.PlayerViewModel
 import kotlinx.coroutines.launch
+import kotlin.math.abs
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
@@ -605,10 +606,21 @@ fun FeedsScreenContent(
                      currentListState.firstVisibleItemScrollOffset == 0
         
         if (!isAtTop) {
-            // 如果不在顶部，滚动到顶部 - 使用 scrollToItem 替代 animateScrollToItem 提升性能
+            // 如果不在顶部，滚动到顶部 - 智能选择滚动方式
             coroutineScope.launch {
                 try {
-                    currentListState?.animateScrollToItem(0) // 使用动画滚动
+                    val currentIndex = currentListState?.firstVisibleItemIndex ?: 0
+                    val animationThreshold = 20 // 跳转距离阈值
+                    
+                    if (currentIndex <= animationThreshold) {
+                        // 距离较短，使用动画滚动提供流畅体验
+                        Log.d("FeedsScreen", "返回键滚动距离: $currentIndex，使用动画滚动")
+                        currentListState?.animateScrollToItem(0)
+                    } else {
+                        // 距离较长，直接跳转提升性能
+                        Log.d("FeedsScreen", "返回键滚动距离: $currentIndex，直接跳转")
+                        currentListState?.scrollToItem(0)
+                    }
                     hasScrolledToTop = true
                 } catch (e: kotlinx.coroutines.CancellationException) {
                     // 检查是否是LeftCompositionCancellationException
@@ -740,13 +752,24 @@ fun FeedsScreenContent(
                             ) {
                                 val currentTime = System.currentTimeMillis()
                                 if (currentTime - lastClickTime <= doubleTapThreshold) {
-                                    // 双击事件：滚动到顶部 - 优化滚动性能
+                                    // 双击事件：滚动到顶部 - 智能选择滚动方式
                                     coroutineScope.launch {
                                         try {
                                             // 根据 pagerState 获取当前可见的列表状态并滚动
                                             val categoryToScroll = pagerCategories.getOrNull(pagerState.currentPage)
                                             val stateToScroll = categoryToScroll?.let { listStates[it] }
-                                            stateToScroll?.animateScrollToItem(0) // 使用动画滚动
+                                            val currentIndex = stateToScroll?.firstVisibleItemIndex ?: 0
+                                            val animationThreshold = 20 // 跳转距离阈值
+                                            
+                                            if (currentIndex <= animationThreshold) {
+                                                // 距离较短，使用动画滚动提供流畅体验
+                                                Log.d("FeedsScreen", "双击标题滚动距离: $currentIndex，使用动画滚动")
+                                                stateToScroll?.animateScrollToItem(0)
+                                            } else {
+                                                // 距离较长，直接跳转提升性能
+                                                Log.d("FeedsScreen", "双击标题滚动距离: $currentIndex，直接跳转")
+                                                stateToScroll?.scrollToItem(0)
+                                            }
                                         } catch (e: kotlinx.coroutines.CancellationException) {
                                             // 检查是否是LeftCompositionCancellationException
                                             if (e.message?.contains("left the composition") == true) {
@@ -846,7 +869,18 @@ fun FeedsScreenContent(
                                         "" // 默认为全部分类
                                     }
                                     val listState = listStates[category]
-                                    listState?.animateScrollToItem(0) // 使用动画滚动
+                                    val currentIndex = listState?.firstVisibleItemIndex ?: 0
+                                    val animationThreshold = 20 // 跳转距离阈值
+                                    
+                                    if (currentIndex <= animationThreshold) {
+                                        // 距离较短，使用动画滚动提供流畅体验
+                                        Log.d("FeedsScreen", "双击Tab滚动距离: $currentIndex，使用动画滚动")
+                                        listState?.animateScrollToItem(0)
+                                    } else {
+                                        // 距离较长，直接跳转提升性能
+                                        Log.d("FeedsScreen", "双击Tab滚动距离: $currentIndex，直接跳转")
+                                        listState?.scrollToItem(0)
+                                    }
                                 } catch (e: kotlinx.coroutines.CancellationException) {
                                     // 检查是否是LeftCompositionCancellationException
                                     if (e.message?.contains("left the composition") == true) {
@@ -915,9 +949,20 @@ fun FeedsScreenContent(
                                 val listState = listStates[targetCategory]
                                 if (listState != null) {
                                     try {
-                                        Log.d("FeedsScreen", "开始动画滚动到索引: $targetIndex")
-                                        listState.animateScrollToItem(targetIndex) // 使用动画滚动
-                                        Log.d("FeedsScreen", "动画滚动完成")
+                                        val currentIndex = listState.firstVisibleItemIndex
+                                        val jumpDistance = abs(targetIndex - currentIndex)
+                                        val animationThreshold = 20 // 跳转距离阈值
+                                        
+                                        if (jumpDistance <= animationThreshold) {
+                                            // 距离较短，使用动画滚动提供流畅体验
+                                            Log.d("FeedsScreen", "从详情页返回滚动距离: $jumpDistance，使用动画滚动到索引: $targetIndex")
+                                            listState.animateScrollToItem(targetIndex)
+                                        } else {
+                                            // 距离较长，直接跳转提升性能
+                                            Log.d("FeedsScreen", "从详情页返回滚动距离: $jumpDistance，直接跳转到索引: $targetIndex")
+                                            listState.scrollToItem(targetIndex)
+                                        }
+                                        Log.d("FeedsScreen", "滚动完成")
                                     } catch (e: kotlinx.coroutines.CancellationException) {
                                         // 检查是否是LeftCompositionCancellationException
                                         if (e.message?.contains("left the composition") == true) {
@@ -1037,7 +1082,20 @@ fun FeedsScreenContent(
                                     onClick = {
                                         coroutineScope.launch {
                                             try {
-                                                listState.animateScrollToItem(lastReadIndex) // 使用动画滚动
+                                                // 计算跳转距离，决定使用动画还是直接跳转
+                                                val currentIndex = listState.firstVisibleItemIndex
+                                                val jumpDistance = abs(lastReadIndex - currentIndex)
+                                                val animationThreshold = 20 // 跳转距离阈值，超过20条直接跳转
+                                                
+                                                if (jumpDistance <= animationThreshold) {
+                                                    // 距离较短，使用动画滚动提供流畅体验
+                                                    Log.d("FeedsScreen", "跳转距离: $jumpDistance，使用动画滚动到最近阅读")
+                                                    listState.animateScrollToItem(lastReadIndex)
+                                                } else {
+                                                    // 距离较长，直接跳转提升性能
+                                                    Log.d("FeedsScreen", "跳转距离: $jumpDistance，直接跳转到最近阅读")
+                                                    listState.scrollToItem(lastReadIndex)
+                                                }
                                             } catch (e: kotlinx.coroutines.CancellationException) {
                                                 // 检查是否是LeftCompositionCancellationException
                                                 if (e.message?.contains("left the composition") == true) {
