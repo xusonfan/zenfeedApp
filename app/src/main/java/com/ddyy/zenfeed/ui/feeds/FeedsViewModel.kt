@@ -190,10 +190,13 @@ class FeedsViewModel(application: Application) : AndroidViewModel(application) {
             .map { feed ->
                 feed.copy(isRead = isFeedRead(feed))
             }
-            .sortedByDescending { feed ->
-                // 使用更强大的时间解析函数
+            .sortedWith(compareByDescending<Feed> { feed ->
+                // 主要排序：按时间倒序
                 parseTimeToLong(feed.time)
-            }
+            }.thenBy { feed ->
+                // 次要排序：相同时间时按标题字母顺序，确保稳定性
+                feed.labels.title ?: "未知标题"
+            })
         
         val categories = allFeeds
             .mapNotNull { it.labels.category }
