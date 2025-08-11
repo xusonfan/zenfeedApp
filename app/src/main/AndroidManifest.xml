@@ -4,6 +4,9 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    <uses-permission android:name="android.permission.READ_LOGS" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
  
     <application
         android:usesCleartextTraffic="true"
@@ -14,8 +17,7 @@
         android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
-        android:theme="@style/Theme.Zenfeed"
-        android:enableOnBackInvokedCallback="true">
+        android:theme="@style/Theme.Zenfeed">
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -36,6 +38,27 @@
             android:name=".service.PlayerService"
             android:exported="false"
             android:foregroundServiceType="mediaPlayback" />
+            
+        <!-- 日志记录前台服务 -->
+        <service
+            android:name=".service.LoggingForegroundService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="日志记录和调试" />
+        </service>
+        
+        <!-- FileProvider用于分享日志文件 -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
     </application>
 
 </manifest>

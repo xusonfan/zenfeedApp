@@ -17,6 +17,7 @@ import com.ddyy.zenfeed.ui.feeds.FeedDetailScreen
 import com.ddyy.zenfeed.ui.feeds.FeedsScreen
 import com.ddyy.zenfeed.ui.feeds.FeedsUiState
 import com.ddyy.zenfeed.ui.feeds.FeedsViewModel
+import com.ddyy.zenfeed.ui.logging.LoggingScreen
 import com.ddyy.zenfeed.ui.player.PlayerViewModel
 import com.ddyy.zenfeed.ui.settings.SettingsScreen
 import com.ddyy.zenfeed.ui.settings.SettingsViewModel
@@ -90,6 +91,9 @@ fun AppNavigation(sharedViewModel: SharedViewModel) {
                 },
                 onSettingsClick = {
                     navController.navigate("settings")
+                },
+                onLoggingClick = {
+                    navController.navigate("logging")
                 },
                 onPlayPodcastList = { feeds, startIndex ->
                     // 过滤出有播客URL的Feed
@@ -212,6 +216,11 @@ fun AppNavigation(sharedViewModel: SharedViewModel) {
             SettingsScreen(
                 navController = navController,
                 settingsViewModel = settingsViewModel
+            )
+        }
+        composable("logging") {
+            LoggingScreen(
+                onBack = { navController.popBackStack() }
             )
         }
     }

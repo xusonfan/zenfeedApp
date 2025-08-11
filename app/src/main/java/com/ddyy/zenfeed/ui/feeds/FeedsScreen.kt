@@ -30,10 +30,11 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Article
+import androidx.compose.material.icons.automirrored.filled.LastPage
 import androidx.compose.material.icons.filled.AutoMode
+import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.ErrorOutline
-import androidx.compose.material.icons.filled.LastPage
 import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Pause
@@ -360,7 +361,7 @@ fun JumpToLastReadButton(
             modifier = Modifier.padding(horizontal = 16.dp)
         ) {
             Icon(
-                imageVector = Icons.Default.LastPage,
+                imageVector = Icons.AutoMirrored.Filled.LastPage,
                 contentDescription = "跳转到最近阅读",
                 modifier = Modifier.size(18.dp)
             )
@@ -379,6 +380,7 @@ fun FeedsScreen(
     feedsViewModel: FeedsViewModel,
     onFeedClick: (Feed) -> Unit,
     onSettingsClick: () -> Unit = {},
+    onLoggingClick: () -> Unit = {},
     onPlayPodcastList: ((List<Feed>, Int) -> Unit)? = null,
     playerViewModel: PlayerViewModel? = null,
     sharedViewModel: com.ddyy.zenfeed.ui.SharedViewModel? = null,
@@ -415,6 +417,7 @@ fun FeedsScreen(
         onCategorySelected = onCategorySelected,
         onRefresh = onRefresh,
         onSettingsClick = onSettingsClick,
+        onLoggingClick = onLoggingClick,
         onPlayPodcastList = onPlayPodcastList,
         playerViewModel = playerViewModel,
         listStates = listStates,
@@ -439,6 +442,7 @@ fun FeedsScreenContent(
     onCategorySelected: (String) -> Unit,
     onRefresh: () -> Unit,
     onSettingsClick: () -> Unit,
+    onLoggingClick: () -> Unit,
     onPlayPodcastList: ((List<Feed>, Int) -> Unit)?,
     playerViewModel: PlayerViewModel?,
     listStates: MutableMap<String, LazyStaggeredGridState>,
@@ -529,6 +533,12 @@ fun FeedsScreenContent(
                         drawerState.close()
                     }
                     onSettingsClick()
+                },
+                onLoggingClick = {
+                    coroutineScope.launch {
+                        drawerState.close()
+                    }
+                    onLoggingClick()
                 },
                 currentThemeMode = currentThemeMode,
                 onThemeToggle = onThemeToggle,
@@ -893,6 +903,7 @@ fun MenuItemCard(
 @Composable
 fun DrawerContent(
     onSettingsClick: () -> Unit,
+    onLoggingClick: () -> Unit = {},
     currentThemeMode: String = "system",
     onThemeToggle: () -> Unit = {},
     isProxyEnabled: Boolean = false,
@@ -967,6 +978,14 @@ fun DrawerContent(
                 title = "代理设置",
                 subtitle = if (isProxyEnabled) "代理已启用" else "代理已禁用",
                 onClick = onProxyToggle
+            )
+            
+            // 日志记录菜单项
+            MenuItemCard(
+                icon = Icons.Default.BugReport,
+                title = "日志记录",
+                subtitle = "记录应用日志，排查问题",
+                onClick = onLoggingClick
             )
             
             // 设置菜单项
@@ -1194,6 +1213,7 @@ fun FeedsScreenSuccessPreview() {
             onCategorySelected = {},
             onRefresh = {},
             onSettingsClick = {},
+            onLoggingClick = {},
             onPlayPodcastList = null,
             playerViewModel = null,
             listStates = remember { mutableMapOf() },
