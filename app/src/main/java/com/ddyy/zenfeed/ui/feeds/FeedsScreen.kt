@@ -263,7 +263,8 @@ fun CategoryTabs(
     onTabSelected: (Int) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val allCategories = remember { listOf("全部") + categories }
+    // 使用remember监听categories变化，确保tab栏与数据同步
+    val allCategories = remember(categories) { listOf("全部") + categories }
 
     ScrollableTabRow(
         selectedTabIndex = pagerState.currentPage,
@@ -458,7 +459,10 @@ fun FeedsScreenContent(
                 is FeedsUiState.Loading -> ModernLoadingScreen(Modifier.fillMaxSize())
                 is FeedsUiState.Error -> ModernErrorScreen(Modifier.fillMaxSize())
                 is FeedsUiState.Success -> {
-                    val allCategories = remember(feedsUiState.categories) { listOf("") + feedsUiState.categories }
+                    // 确保 allCategories 与 pagerCategories 保持一致
+                    val allCategories = remember(feedsUiState.categories) {
+                        pagerCategories
+                    }
                     
                     // 分类 Tab
                     CategoryTabs(
@@ -481,7 +485,7 @@ fun FeedsScreenContent(
                     // 预先按分类对 feeds 进行分组，避免在 Pager 内部进行昂贵的过滤操作
                     val categorizedFeeds = remember(feedsUiState.feeds) {
                         val grouped = feedsUiState.feeds.groupBy { it.labels.category ?: "" }
-                        // 将“全部”类别也添加进去，通过调换合并顺序，确保“全部”列表覆盖任何可能存在的、分类为空字符串的列表
+                        // 将"全部"类别也添加进去，通过调换合并顺序，确保"全部"列表覆盖任何可能存在的、分类为空字符串的列表
                         grouped + ("" to feedsUiState.feeds)
                     }
                     
@@ -489,9 +493,21 @@ fun FeedsScreenContent(
                     HorizontalPager(
                         state = pagerState,
                         modifier = Modifier.fillMaxSize(),
-                        key = { allCategories[it] }
+                        key = { index ->
+                            // 添加边界检查，防止索引越界
+                            if (index < allCategories.size) {
+                                allCategories[index]
+                            } else {
+                                "unknown_$index"
+                            }
+                        }
                     ) { page ->
-                        val category = allCategories[page]
+                        // 添加边界检查，防止索引越界
+                        val category = if (page < allCategories.size) {
+                            allCategories[page]
+                        } else {
+                            "" // 默认为全部分类
+                        }
                         // 直接从预先计算好的 Map 中获取数据，这是一个非常快速的操作
                         val feedsForCategory = categorizedFeeds[category] ?: emptyList()
                         val listState = listStates.getOrPut(category) {
