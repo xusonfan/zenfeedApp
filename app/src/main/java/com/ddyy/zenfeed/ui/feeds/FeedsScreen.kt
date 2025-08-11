@@ -5,11 +5,14 @@ import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -94,7 +97,7 @@ import com.ddyy.zenfeed.data.Labels
 import com.ddyy.zenfeed.ui.player.PlayerViewModel
 import kotlinx.coroutines.launch
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun FeedItem(
     feed: Feed,
@@ -133,7 +136,7 @@ fun FeedItem(
             Column(
                 modifier = Modifier
                     .clickable { onClick() }
-                    .padding(16.dp) // 统一内边距
+                    .padding(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 12.dp) // 减少底部内边距
             ) {
                 // 来源信息区域 - 简化设计，恢复原始布局
                 Row(
@@ -229,6 +232,89 @@ fun FeedItem(
                             alpha = if (feed.isRead) 0.5f else 1.0f // 已读文章摘要也淡化
                         )
                     )
+                }
+                
+                // Tags 展示区域 - 放在卡片左下角
+                val displayTags = remember(feed.labels.tags) {
+                    feed.labels.tags?.takeIf { it.isNotBlank() }
+                        ?.split(",", "，", ";", "；") // 支持多种分隔符
+                        ?.map { it.trim() }
+                        ?.filter { it.isNotEmpty() }
+                        ?.take(3) // 最多显示3个标签
+                        ?: emptyList()
+                }
+                
+                if (displayTags.isNotEmpty()) {
+                    Spacer(modifier = Modifier.height(6.dp))
+                    
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        verticalArrangement = Arrangement.spacedBy(3.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        displayTags.forEachIndexed { index, tag ->
+                            // 根据标签内容生成颜色
+                            val colorIndex = tag.hashCode().let { if (it < 0) -it else it } % 6
+                            val (backgroundColor, borderColor, textColor) = when (colorIndex) {
+                                0 -> Triple(
+                                    MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f),
+                                    MaterialTheme.colorScheme.primary.copy(alpha = 0.3f),
+                                    MaterialTheme.colorScheme.primary
+                                )
+                                1 -> Triple(
+                                    MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.3f),
+                                    MaterialTheme.colorScheme.secondary.copy(alpha = 0.3f),
+                                    MaterialTheme.colorScheme.secondary
+                                )
+                                2 -> Triple(
+                                    MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.3f),
+                                    MaterialTheme.colorScheme.tertiary.copy(alpha = 0.3f),
+                                    MaterialTheme.colorScheme.tertiary
+                                )
+                                3 -> Triple(
+                                    MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.3f),
+                                    MaterialTheme.colorScheme.error.copy(alpha = 0.3f),
+                                    MaterialTheme.colorScheme.error
+                                )
+                                4 -> Triple(
+                                    MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
+                                    MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f),
+                                    MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                else -> Triple(
+                                    MaterialTheme.colorScheme.inversePrimary.copy(alpha = 0.2f),
+                                    MaterialTheme.colorScheme.inversePrimary.copy(alpha = 0.4f),
+                                    MaterialTheme.colorScheme.inversePrimary
+                                )
+                            }
+                            
+                            Box(
+                                modifier = Modifier
+                                    .background(
+                                        color = backgroundColor,
+                                        shape = RoundedCornerShape(6.dp)
+                                    )
+                                    .border(
+                                        width = 0.5.dp,
+                                        color = borderColor,
+                                        shape = RoundedCornerShape(6.dp)
+                                    )
+                                    .padding(horizontal = 6.dp, vertical = 2.dp)
+                            ) {
+                                Text(
+                                    text = tag,
+                                    style = MaterialTheme.typography.labelSmall.copy(
+                                        fontSize = 10.sp
+                                    ),
+                                    color = textColor.copy(
+                                        alpha = if (feed.isRead) 0.6f else 0.8f
+                                    ),
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                        }
+                    }
                 }
                 
             }
@@ -1221,7 +1307,7 @@ fun FeedItemPreview() {
                         podcastUrl = "",
                         pubTime = "",
                         summaryHtmlSnippet = "",
-                        tags = "",
+                        tags = "新闻,时事",
                         type = ""
                     ),
                     time = "2023-10-27T12:00:00Z",
@@ -1245,7 +1331,7 @@ fun FeedItemPreview() {
                         podcastUrl = "",
                         pubTime = "",
                         summaryHtmlSnippet = "",
-                        tags = "",
+                        tags = "新闻,时事",
                         type = ""
                     ),
                     time = "2023-10-27T11:00:00Z",
@@ -1275,7 +1361,11 @@ fun FeedsScreenSuccessPreview() {
                             podcastUrl = "",
                             pubTime = "",
                             summaryHtmlSnippet = "",
-                            tags = "",
+                            tags = when (it % 3) {
+                                0 -> "科技,AI,创新"
+                                1 -> "新闻,时事,热点"
+                                else -> "生活,健康,娱乐"
+                            },
                             type = ""
                         ),
                         time = "2023-10-27T12:00:00Z",

@@ -7,11 +7,15 @@ import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -27,6 +31,7 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.PlaylistPlay
@@ -63,6 +68,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.window.Dialog
 import androidx.core.graphics.toColorInt
@@ -72,7 +78,7 @@ import com.ddyy.zenfeed.data.PlaylistInfo
 import com.ddyy.zenfeed.ui.player.PlayerViewModel
 import kotlin.math.min
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun FeedDetailScreen(
     allFeeds: List<Feed>,
@@ -519,9 +525,92 @@ fun FeedDetailPage(
             )
         }
         
+        // Tags 展示区域
+        item {
+            val displayTags = remember(feed.labels.tags) {
+                feed.labels.tags?.takeIf { it.isNotBlank() }
+                    ?.split(",", "，", ";", "；") // 支持多种分隔符
+                    ?.map { it.trim() }
+                    ?.filter { it.isNotEmpty() }
+                    ?.take(5) // 详情页可以显示更多标签
+                    ?: emptyList()
+            }
+            
+            if (displayTags.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(12.dp))
+                
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    displayTags.forEachIndexed { index, tag ->
+                        // 根据标签内容生成颜色
+                        val colorIndex = tag.hashCode().let { if (it < 0) -it else it } % 6
+                        val (backgroundColor, borderColor, textColor) = when (colorIndex) {
+                            0 -> Triple(
+                                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f),
+                                MaterialTheme.colorScheme.primary.copy(alpha = 0.3f),
+                                MaterialTheme.colorScheme.primary
+                            )
+                            1 -> Triple(
+                                MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.3f),
+                                MaterialTheme.colorScheme.secondary.copy(alpha = 0.3f),
+                                MaterialTheme.colorScheme.secondary
+                            )
+                            2 -> Triple(
+                                MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.3f),
+                                MaterialTheme.colorScheme.tertiary.copy(alpha = 0.3f),
+                                MaterialTheme.colorScheme.tertiary
+                            )
+                            3 -> Triple(
+                                MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.3f),
+                                MaterialTheme.colorScheme.error.copy(alpha = 0.3f),
+                                MaterialTheme.colorScheme.error
+                            )
+                            4 -> Triple(
+                                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
+                                MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f),
+                                MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            else -> Triple(
+                                MaterialTheme.colorScheme.inversePrimary.copy(alpha = 0.2f),
+                                MaterialTheme.colorScheme.inversePrimary.copy(alpha = 0.4f),
+                                MaterialTheme.colorScheme.inversePrimary
+                            )
+                        }
+                        
+                        Box(
+                            modifier = Modifier
+                                .background(
+                                    color = backgroundColor,
+                                    shape = RoundedCornerShape(8.dp)
+                                )
+                                .border(
+                                    width = 0.5.dp,
+                                    color = borderColor,
+                                    shape = RoundedCornerShape(8.dp)
+                                )
+                                .padding(horizontal = 10.dp, vertical = 4.dp)
+                        ) {
+                            Text(
+                                text = tag,
+                                style = MaterialTheme.typography.labelSmall.copy(
+                                    fontSize = 11.sp
+                                ),
+                                color = textColor.copy(alpha = 0.9f),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    }
+                }
+            }
+        }
+        
         // 来源和发布时间
         item {
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(12.dp))
             Text(
                 text = "${feed.labels.source ?: "未知来源"} • 发布于: ${feed.formattedTime}",
                 style = MaterialTheme.typography.labelMedium,
