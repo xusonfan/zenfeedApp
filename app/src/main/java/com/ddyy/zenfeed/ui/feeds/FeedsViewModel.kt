@@ -220,10 +220,7 @@ class FeedsViewModel(application: Application) : AndroidViewModel(application) {
         return try {
             // kotlinx-datetime 的 Instant.parse() 可以自动处理各种 ISO 8601 格式
             // 包括纳秒精度和时区信息，如: 2025-08-11T08:14:51.583598089+08:00
-            val instant = Instant.parse(timeString)
-            val epochMillis = instant.toEpochMilliseconds()
-            Log.d("FeedsViewModel", "时间解析成功: $timeString -> $epochMillis (使用 kotlinx-datetime)")
-            epochMillis
+            Instant.parse(timeString).toEpochMilliseconds()
         } catch (e: Exception) {
             Log.d("FeedsViewModel", "kotlinx-datetime 解析失败: $timeString, 尝试备用方案")
             
