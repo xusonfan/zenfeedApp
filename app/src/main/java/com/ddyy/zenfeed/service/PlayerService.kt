@@ -39,6 +39,12 @@ class PlayerService : Service() {
     var currentTrackUrl: String? = null
         private set
     
+    // 预加载相关变量
+    private var preloadMediaPlayer: MediaPlayer? = null
+    private var preloadedTrackIndex = -1
+    private var isPreloadPrepared = false
+    private var preloadTrackUrl: String? = null
+    
     // 播放模式：false为顺序播放，true为循环播放
     private var isRepeatMode = true
     // 乱序播放模式：false为顺序播放，true为乱序播放
@@ -171,6 +177,41 @@ class PlayerService : Service() {
         currentTrackUrl = url
         isPrepared = false
         stopProgressUpdate()
+        
+        // 检查是否已经预加载了这个文件
+        if (preloadTrackUrl == url && isPreloadPrepared && preloadMediaPlayer != null) {
+            Log.d("PlayerService", "使用预加载的媒体文件: $url")
+            
+            // 将预加载的播放器设为当前播放器
+            mediaPlayer?.release()
+            mediaPlayer = preloadMediaPlayer
+            preloadMediaPlayer = null
+            isPrepared = true
+            isPreloadPrepared = false
+            preloadTrackUrl = null
+            preloadedTrackIndex = -1
+            
+            // 设置元数据
+            val track = playlist.getOrNull(currentTrackIndex)
+            val duration = mediaPlayer?.duration?.toLong() ?: 0L
+            val metadata = MediaMetadataCompat.Builder()
+                .putString(MediaMetadataCompat.METADATA_KEY_TITLE, track?.labels?.title ?: "未知标题")
+                .putString(MediaMetadataCompat.METADATA_KEY_ARTIST, track?.labels?.source ?: "未知来源")
+                .putLong(MediaMetadataCompat.METADATA_KEY_DURATION, duration)
+                .build()
+            mediaSession?.setMetadata(metadata)
+            
+            // 开始播放
+            mediaPlayer?.start()
+            Log.d("PlayerService", "开始播放预加载的文件: $url")
+            updatePlaybackState(PlaybackStateCompat.STATE_PLAYING)
+            startProgressUpdate()
+            
+            // 开始预加载下一个播客
+            preloadNextTrack()
+            return
+        }
+        
         mediaPlayer?.release()
         
         Log.d("PlayerService", "准备播放: $url")
@@ -202,6 +243,9 @@ class PlayerService : Service() {
                                 Log.d("PlayerService", "开始播放: $url")
                                 updatePlaybackState(PlaybackStateCompat.STATE_PLAYING)
                                 startProgressUpdate()
+                                
+                                // 开始预加载下一个播客
+                                preloadNextTrack()
                             }
                             setOnCompletionListener {
                                 stopProgressUpdate()
@@ -565,11 +609,150 @@ class PlayerService : Service() {
     fun isSameTrack(url: String): Boolean {
         return currentTrackUrl == url
     }
+    
+    /**
+     * 预加载下一个播客
+     */
+    private fun preloadNextTrack() {
+        try {
+            Log.d("PlayerService", "开始预加载下一个播客")
+            
+            if (playlist.isEmpty()) {
+                Log.d("PlayerService", "播放列表为空，跳过预加载")
+                return
+            }
+            
+            val nextIndex = getNextTrackIndex()
+            if (nextIndex == -1) {
+                Log.d("PlayerService", "没有下一个播客，跳过预加载")
+                return
+            }
+            
+            val nextFeed = playlist.getOrNull(nextIndex)
+            val nextUrl = nextFeed?.labels?.podcastUrl
+            
+            if (nextUrl.isNullOrBlank()) {
+                Log.d("PlayerService", "下一个播客没有URL，跳过预加载")
+                return
+            }
+            
+            // 如果已经预加载了同一个文件，跳过
+            if (preloadTrackUrl == nextUrl && isPreloadPrepared) {
+                Log.d("PlayerService", "下一个播客已经预加载，跳过")
+                return
+            }
+            
+            // 清理之前的预加载
+            cleanupPreloadedTrack()
+            
+            preloadedTrackIndex = nextIndex
+            preloadTrackUrl = nextUrl
+            
+            Log.d("PlayerService", "开始预加载播客: $nextUrl")
+            
+            // 使用协程在后台预加载
+            CoroutineScope(Dispatchers.IO).launch {
+                try {
+                    val localFile = downloadMediaFile(nextUrl)
+                    
+                    // 在主线程设置预加载的MediaPlayer
+                    withContext(Dispatchers.Main) {
+                        preloadMediaPlayer = MediaPlayer().apply {
+                            try {
+                                setDataSource(localFile.absolutePath)
+                                setOnPreparedListener { mediaPlayer ->
+                                    isPreloadPrepared = true
+                                    Log.d("PlayerService", "预加载完成: $nextUrl")
+                                }
+                                setOnErrorListener { _, what, extra ->
+                                    Log.e("PlayerService", "预加载错误: what=$what, extra=$extra")
+                                    cleanupPreloadedTrack()
+                                    true
+                                }
+                                prepareAsync()
+                            } catch (e: Exception) {
+                                Log.e("PlayerService", "设置预加载数据源时出错", e)
+                                cleanupPreloadedTrack()
+                            }
+                        }
+                    }
+                } catch (e: Exception) {
+                    Log.e("PlayerService", "预加载媒体文件失败", e)
+                    withContext(Dispatchers.Main) {
+                        cleanupPreloadedTrack()
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            Log.e("PlayerService", "预加载下一个播客时发生异常", e)
+        }
+    }
+    
+    /**
+     * 获取下一个播客的索引
+     */
+    private fun getNextTrackIndex(): Int {
+        try {
+            if (playlist.isEmpty()) return -1
+            
+            if (isShuffleMode) {
+                // 乱序模式
+                val currentShuffledIndex = shuffledIndices.indexOf(currentTrackIndex)
+                if (currentShuffledIndex != -1) {
+                    val nextShuffledIndex = if (isRepeatMode) {
+                        (currentShuffledIndex + 1) % shuffledIndices.size
+                    } else {
+                        if (currentShuffledIndex < shuffledIndices.size - 1) {
+                            currentShuffledIndex + 1
+                        } else {
+                            -1 // 已是最后一首
+                        }
+                    }
+                    
+                    return if (nextShuffledIndex != -1) {
+                        shuffledIndices[nextShuffledIndex]
+                    } else {
+                        -1
+                    }
+                }
+            } else if (isRepeatMode) {
+                // 循环模式：播放到最后一首后回到第一首
+                return (currentTrackIndex + 1) % playlist.size
+            } else {
+                // 顺序模式：播放到最后一首后停止
+                return if (currentTrackIndex < playlist.size - 1) {
+                    currentTrackIndex + 1
+                } else {
+                    -1
+                }
+            }
+        } catch (e: Exception) {
+            Log.e("PlayerService", "获取下一个播客索引时出错", e)
+        }
+        return -1
+    }
+    
+    /**
+     * 清理预加载的播客资源
+     */
+    private fun cleanupPreloadedTrack() {
+        try {
+            preloadMediaPlayer?.release()
+            preloadMediaPlayer = null
+            isPreloadPrepared = false
+            preloadTrackUrl = null
+            preloadedTrackIndex = -1
+            Log.d("PlayerService", "清理预加载资源")
+        } catch (e: Exception) {
+            Log.e("PlayerService", "清理预加载资源时出错", e)
+        }
+    }
 
     override fun onDestroy() {
         stopProgressUpdate()
         mediaPlayer?.release()
         mediaPlayer = null
+        cleanupPreloadedTrack()
         mediaSession?.release()
         cleanupOldCacheFiles()
         super.onDestroy()
