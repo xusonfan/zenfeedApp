@@ -517,7 +517,7 @@ fun FeedsScreenContent(
             // 如果不在顶部，滚动到顶部 - 使用 scrollToItem 替代 animateScrollToItem 提升性能
             coroutineScope.launch {
                 try {
-                    currentListState?.scrollToItem(0) // 使用即时滚动，避免动画卡顿
+                    currentListState?.animateScrollToItem(0) // 使用动画滚动
                     hasScrolledToTop = true
                 } catch (e: kotlinx.coroutines.CancellationException) {
                     // 检查是否是LeftCompositionCancellationException
@@ -597,7 +597,7 @@ fun FeedsScreenContent(
                                             // 根据 pagerState 获取当前可见的列表状态并滚动
                                             val categoryToScroll = pagerCategories.getOrNull(pagerState.currentPage)
                                             val stateToScroll = categoryToScroll?.let { listStates[it] }
-                                            stateToScroll?.scrollToItem(0) // 使用即时滚动
+                                            stateToScroll?.animateScrollToItem(0) // 使用动画滚动
                                         } catch (e: kotlinx.coroutines.CancellationException) {
                                             // 检查是否是LeftCompositionCancellationException
                                             if (e.message?.contains("left the composition") == true) {
@@ -694,7 +694,7 @@ fun FeedsScreenContent(
                                         "" // 默认为全部分类
                                     }
                                     val listState = listStates[category]
-                                    listState?.scrollToItem(0) // 使用即时滚动提升性能
+                                    listState?.animateScrollToItem(0) // 使用动画滚动
                                 } catch (e: kotlinx.coroutines.CancellationException) {
                                     // 检查是否是LeftCompositionCancellationException
                                     if (e.message?.contains("left the composition") == true) {
@@ -763,9 +763,9 @@ fun FeedsScreenContent(
                                 val listState = listStates[targetCategory]
                                 if (listState != null) {
                                     try {
-                                        Log.d("FeedsScreen", "开始滚动到索引: $targetIndex")
-                                        listState.scrollToItem(targetIndex) // 使用即时滚动提升性能
-                                        Log.d("FeedsScreen", "滚动完成")
+                                        Log.d("FeedsScreen", "开始动画滚动到索引: $targetIndex")
+                                        listState.animateScrollToItem(targetIndex) // 使用动画滚动
+                                        Log.d("FeedsScreen", "动画滚动完成")
                                     } catch (e: kotlinx.coroutines.CancellationException) {
                                         // 检查是否是LeftCompositionCancellationException
                                         if (e.message?.contains("left the composition") == true) {
@@ -885,7 +885,7 @@ fun FeedsScreenContent(
                                     onClick = {
                                         coroutineScope.launch {
                                             try {
-                                                listState.scrollToItem(lastReadIndex) // 使用即时滚动提升性能
+                                                listState.animateScrollToItem(lastReadIndex) // 使用动画滚动
                                             } catch (e: kotlinx.coroutines.CancellationException) {
                                                 // 检查是否是LeftCompositionCancellationException
                                                 if (e.message?.contains("left the composition") == true) {

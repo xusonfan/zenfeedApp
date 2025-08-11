@@ -1,6 +1,11 @@
 package com.ddyy.zenfeed.ui.navigation
 
 import android.util.Log
+import androidx.compose.animation.AnimatedContentTransitionScope
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -70,7 +75,18 @@ fun AppNavigation(sharedViewModel: SharedViewModel) {
         navController = navController,
         startDestination = "feeds"
     ) {
-        composable("feeds") {
+        composable(
+            "feeds",
+            popEnterTransition = {
+                // 从详情页返回时的进入动画：快速淡入，避免闪烁
+                fadeIn(
+                    animationSpec = tween(
+                        durationMillis = 200,
+                        easing = FastOutSlowInEasing
+                    )
+                )
+            }
+        ) {
             FeedsScreen(
                 feedsViewModel = feedsViewModel,
                 onFeedClick = { feed ->
@@ -151,7 +167,66 @@ fun AppNavigation(sharedViewModel: SharedViewModel) {
                 }
             )
         }
-        composable("feedDetail") {
+        composable(
+            "feedDetail",
+            enterTransition = {
+                // 进入时：从右向左滑入，延迟淡入以减少闪烁
+                slideIntoContainer(
+                    towards = AnimatedContentTransitionScope.SlideDirection.Left,
+                    animationSpec = tween(
+                        durationMillis = 300,
+                        easing = FastOutSlowInEasing
+                    )
+                ) + fadeIn(
+                    animationSpec = tween(
+                        durationMillis = 150,
+                        delayMillis = 50,
+                        easing = FastOutSlowInEasing
+                    )
+                )
+            },
+            exitTransition = {
+                // 退出时：先淡出再滑出，避免背景色闪烁
+                fadeOut(
+                    animationSpec = tween(
+                        durationMillis = 100,
+                        easing = FastOutSlowInEasing
+                    )
+                ) + slideOutOfContainer(
+                    towards = AnimatedContentTransitionScope.SlideDirection.Right,
+                    animationSpec = tween(
+                        durationMillis = 250,
+                        delayMillis = 50,
+                        easing = FastOutSlowInEasing
+                    )
+                )
+            },
+            popEnterTransition = {
+                // 返回时列表页的进入动画：快速淡入
+                fadeIn(
+                    animationSpec = tween(
+                        durationMillis = 200,
+                        easing = FastOutSlowInEasing
+                    )
+                )
+            },
+            popExitTransition = {
+                // 返回时详情页的退出动画：先淡出再滑出
+                fadeOut(
+                    animationSpec = tween(
+                        durationMillis = 100,
+                        easing = FastOutSlowInEasing
+                    )
+                ) + slideOutOfContainer(
+                    towards = AnimatedContentTransitionScope.SlideDirection.Right,
+                    animationSpec = tween(
+                        durationMillis = 250,
+                        delayMillis = 50,
+                        easing = FastOutSlowInEasing
+                    )
+                )
+            }
+        ) {
             val allFeeds = sharedViewModel.allFeeds
             val selectedFeed = sharedViewModel.selectedFeed
             if (selectedFeed != null && allFeeds.isNotEmpty()) {
@@ -204,7 +279,39 @@ fun AppNavigation(sharedViewModel: SharedViewModel) {
                 )
             }
         }
-        composable("webview") {
+        composable(
+            "webview",
+            enterTransition = {
+                // 组合滑动和淡入动画，减少闪烁
+                slideIntoContainer(
+                    towards = AnimatedContentTransitionScope.SlideDirection.Left,
+                    animationSpec = tween(
+                        durationMillis = 350,
+                        easing = FastOutSlowInEasing
+                    )
+                ) + fadeIn(
+                    animationSpec = tween(
+                        durationMillis = 200,
+                        easing = FastOutSlowInEasing
+                    )
+                )
+            },
+            exitTransition = {
+                // 组合滑动和淡出动画，减少闪烁
+                slideOutOfContainer(
+                    towards = AnimatedContentTransitionScope.SlideDirection.Right,
+                    animationSpec = tween(
+                        durationMillis = 350,
+                        easing = FastOutSlowInEasing
+                    )
+                ) + fadeOut(
+                    animationSpec = tween(
+                        durationMillis = 200,
+                        easing = FastOutSlowInEasing
+                    )
+                )
+            }
+        ) {
             val webViewData = sharedViewModel.webViewData
             if (webViewData != null) {
                 WebViewScreen(
@@ -214,14 +321,78 @@ fun AppNavigation(sharedViewModel: SharedViewModel) {
                 )
             }
         }
-        composable("settings") {
+        composable(
+            "settings",
+            enterTransition = {
+                // 组合滑动和淡入动画，减少闪烁
+                slideIntoContainer(
+                    towards = AnimatedContentTransitionScope.SlideDirection.Left,
+                    animationSpec = tween(
+                        durationMillis = 350,
+                        easing = FastOutSlowInEasing
+                    )
+                ) + fadeIn(
+                    animationSpec = tween(
+                        durationMillis = 200,
+                        easing = FastOutSlowInEasing
+                    )
+                )
+            },
+            exitTransition = {
+                // 组合滑动和淡出动画，减少闪烁
+                slideOutOfContainer(
+                    towards = AnimatedContentTransitionScope.SlideDirection.Right,
+                    animationSpec = tween(
+                        durationMillis = 350,
+                        easing = FastOutSlowInEasing
+                    )
+                ) + fadeOut(
+                    animationSpec = tween(
+                        durationMillis = 200,
+                        easing = FastOutSlowInEasing
+                    )
+                )
+            }
+        ) {
             val settingsViewModel = androidx.lifecycle.viewmodel.compose.viewModel<SettingsViewModel>()
             SettingsScreen(
                 navController = navController,
                 settingsViewModel = settingsViewModel
             )
         }
-        composable("logging") {
+        composable(
+            "logging",
+            enterTransition = {
+                // 组合滑动和淡入动画，减少闪烁
+                slideIntoContainer(
+                    towards = AnimatedContentTransitionScope.SlideDirection.Left,
+                    animationSpec = tween(
+                        durationMillis = 350,
+                        easing = FastOutSlowInEasing
+                    )
+                ) + fadeIn(
+                    animationSpec = tween(
+                        durationMillis = 200,
+                        easing = FastOutSlowInEasing
+                    )
+                )
+            },
+            exitTransition = {
+                // 组合滑动和淡出动画，减少闪烁
+                slideOutOfContainer(
+                    towards = AnimatedContentTransitionScope.SlideDirection.Right,
+                    animationSpec = tween(
+                        durationMillis = 350,
+                        easing = FastOutSlowInEasing
+                    )
+                ) + fadeOut(
+                    animationSpec = tween(
+                        durationMillis = 200,
+                        easing = FastOutSlowInEasing
+                    )
+                )
+            }
+        ) {
             LoggingScreen(
                 onBack = { navController.popBackStack() }
             )
