@@ -239,8 +239,8 @@ class SettingsDataStore(private val context: Context) {
             val cleanUrl = url.trim()
             if (cleanUrl.isEmpty()) return false
             
-            // 简单的URL格式验证
-            val urlPattern = Regex("^https?://[a-zA-Z0-9.-]+(/.*)?$")
+            // 简单的URL格式验证，支持端口号
+            val urlPattern = Regex("^https?://[a-zA-Z0-9.-]+(:[0-9]+)?(/.*)?$")
             urlPattern.matches(cleanUrl) && !cleanUrl.endsWith("//")
         } catch (e: Exception) {
             false

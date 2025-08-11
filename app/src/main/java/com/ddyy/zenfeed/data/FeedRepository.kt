@@ -73,6 +73,27 @@ class FeedRepository(private val context: Context) {
         } catch (e: Exception) {
             android.util.Log.e("FeedRepository", "获取摘要失败", e)
             
+            // 检查是否是SSL错误，提供更有用的错误信息
+            val errorMessage = when {
+                e is javax.net.ssl.SSLException && e.message?.contains("Unable to parse TLS packet header") == true -> {
+                    "SSL连接失败：服务器可能不支持HTTPS协议，请检查API地址是否应该使用HTTP协议"
+                }
+                e is javax.net.ssl.SSLException -> {
+                    "SSL连接失败：${e.message}"
+                }
+                e is java.net.ConnectException -> {
+                    "连接失败：无法连接到服务器，请检查网络和API地址"
+                }
+                e is java.net.SocketTimeoutException -> {
+                    "连接超时：服务器响应超时，请检查网络连接"
+                }
+                else -> {
+                    "网络请求失败：${e.message}"
+                }
+            }
+            
+            android.util.Log.e("FeedRepository", errorMessage)
+            
             // 如果网络请求失败且有缓存数据，返回缓存数据
             val cachedFeeds = getCachedFeeds()
             if (cachedFeeds != null) {
@@ -80,7 +101,8 @@ class FeedRepository(private val context: Context) {
                 return Result.success(FeedResponse(feeds = cachedFeeds))
             }
             
-            Result.failure(e)
+            // 返回包含详细错误信息的失败结果
+            Result.failure(Exception(errorMessage, e))
         }
     }
     

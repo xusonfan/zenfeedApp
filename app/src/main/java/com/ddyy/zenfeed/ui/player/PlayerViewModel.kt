@@ -91,7 +91,7 @@ class PlayerViewModel : ViewModel() {
     fun playPodcastPlaylist(feeds: List<Feed>, startIndex: Int = 0) {
         try {
             // 过滤出有播客URL的Feed
-            val podcastFeeds = feeds.filter { it.labels.podcastUrl.isNotBlank() }
+            val podcastFeeds = feeds.filter { !it.labels.podcastUrl.isNullOrBlank() }
             if (podcastFeeds.isNotEmpty()) {
                 val validStartIndex = startIndex.coerceIn(0, podcastFeeds.size - 1)
                 playerService?.setPlaylist(podcastFeeds, validStartIndex)

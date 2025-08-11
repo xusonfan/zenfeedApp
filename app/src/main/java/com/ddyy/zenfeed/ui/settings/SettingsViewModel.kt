@@ -4,6 +4,7 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.ddyy.zenfeed.data.SettingsDataStore
+import com.ddyy.zenfeed.data.network.ApiClient
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -289,6 +290,9 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                     password = currentInputProxyPassword
                 )
                 
+                // 刷新API客户端以应用新的设置
+                ApiClient.refreshApiService(getApplication())
+                
                 showMessage("所有设置已保存")
                 
             } catch (e: Exception) {
@@ -329,6 +333,9 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                     username = currentInputProxyUsername.trim(),
                     password = currentInputProxyPassword
                 )
+                
+                // 刷新API客户端以应用新的代理设置
+                ApiClient.refreshApiService(getApplication())
                 
                 if (currentProxyEnabled) {
                     showMessage("代理设置已保存并启用")
@@ -382,6 +389,10 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                 currentInputProxyUsername = SettingsDataStore.DEFAULT_PROXY_USERNAME
                 currentInputProxyPassword = SettingsDataStore.DEFAULT_PROXY_PASSWORD
                 currentThemeMode = SettingsDataStore.DEFAULT_THEME_MODE
+                
+                // 刷新API客户端以应用重置的设置
+                ApiClient.refreshApiService(getApplication())
+                
                 showMessage("已重置为默认设置")
                 
             } catch (e: Exception) {

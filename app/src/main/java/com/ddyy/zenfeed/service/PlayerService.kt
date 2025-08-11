@@ -150,7 +150,7 @@ class PlayerService : Service() {
             }
             
             val currentFeed = playlist[currentTrackIndex]
-            if (currentFeed.labels.podcastUrl.isBlank()) {
+            if (currentFeed.labels.podcastUrl.isNullOrBlank()) {
                 Log.w("PlayerService", "当前曲目没有播客URL")
                 return
             }
@@ -164,7 +164,7 @@ class PlayerService : Service() {
     fun play(feed: Feed) {
         playlist = listOf(feed)
         currentTrackIndex = 0
-        playInternal(feed.labels.podcastUrl)
+        playInternal(feed.labels.podcastUrl ?: "")
     }
 
     private fun playInternal(url: String) {
@@ -192,8 +192,8 @@ class PlayerService : Service() {
                                 val duration = mediaPlayer.duration.toLong()
 
                                 val metadata = MediaMetadataCompat.Builder()
-                                    .putString(MediaMetadataCompat.METADATA_KEY_TITLE, track?.labels?.title)
-                                    .putString(MediaMetadataCompat.METADATA_KEY_ARTIST, track?.labels?.source)
+                                    .putString(MediaMetadataCompat.METADATA_KEY_TITLE, track?.labels?.title ?: "未知标题")
+                                    .putString(MediaMetadataCompat.METADATA_KEY_ARTIST, track?.labels?.source ?: "未知来源")
                                     .putLong(MediaMetadataCompat.METADATA_KEY_DURATION, duration)
                                     .build()
                                 mediaSession?.setMetadata(metadata)
@@ -640,17 +640,17 @@ class PlayerService : Service() {
         // 创建点击通知跳转到文章详情的Intent
         val contentIntent = Intent(this, com.ddyy.zenfeed.MainActivity::class.java).apply {
             action = "ACTION_OPEN_FEED_DETAIL"
-            putExtra("FEED_TITLE", track.labels.title)
-            putExtra("FEED_SOURCE", track.labels.source)
-            putExtra("FEED_CONTENT", track.labels.content)
-            putExtra("FEED_LINK", track.labels.link)
-            putExtra("FEED_SUMMARY", track.labels.summary)
-            putExtra("FEED_SUMMARY_HTML_SNIPPET", track.labels.summaryHtmlSnippet)
-            putExtra("FEED_PUB_TIME", track.labels.pubTime)
-            putExtra("FEED_CATEGORY", track.labels.category)
-            putExtra("FEED_TAGS", track.labels.tags)
-            putExtra("FEED_TYPE", track.labels.type)
-            putExtra("FEED_PODCAST_URL", track.labels.podcastUrl)
+            putExtra("FEED_TITLE", track.labels.title ?: "")
+            putExtra("FEED_SOURCE", track.labels.source ?: "")
+            putExtra("FEED_CONTENT", track.labels.content ?: "")
+            putExtra("FEED_LINK", track.labels.link ?: "")
+            putExtra("FEED_SUMMARY", track.labels.summary ?: "")
+            putExtra("FEED_SUMMARY_HTML_SNIPPET", track.labels.summaryHtmlSnippet ?: "")
+            putExtra("FEED_PUB_TIME", track.labels.pubTime ?: "")
+            putExtra("FEED_CATEGORY", track.labels.category ?: "")
+            putExtra("FEED_TAGS", track.labels.tags ?: "")
+            putExtra("FEED_TYPE", track.labels.type ?: "")
+            putExtra("FEED_PODCAST_URL", track.labels.podcastUrl ?: "")
             putExtra("FEED_TIME", track.time)
             putExtra("FEED_IS_READ", track.isRead)
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
@@ -664,8 +664,8 @@ class PlayerService : Service() {
         )
         
         val notification = NotificationCompat.Builder(this, "zenfeed_player")
-            .setContentTitle(track.labels.title)
-            .setContentText(track.labels.source)
+            .setContentTitle(track.labels.title ?: "未知标题")
+            .setContentText(track.labels.source ?: "未知来源")
             .setSmallIcon(android.R.drawable.ic_media_play) // Replace with your app icon
             .setContentIntent(contentPendingIntent) // 设置点击通知的跳转Intent
             .addAction(

@@ -69,7 +69,7 @@ fun AppNavigation(sharedViewModel: SharedViewModel) {
                 },
                 onPlayPodcastList = { feeds, startIndex ->
                     // 过滤出有播客URL的Feed
-                    val podcastFeeds = feeds.filter { it.labels.podcastUrl.isNotBlank() }
+                    val podcastFeeds = feeds.filter { !it.labels.podcastUrl.isNullOrBlank() }
                     if (podcastFeeds.isNotEmpty()) {
                         // 找到当前Feed在过滤后列表中的正确索引
                         val targetFeed = feeds[startIndex]
@@ -101,7 +101,7 @@ fun AppNavigation(sharedViewModel: SharedViewModel) {
                     },
                     onPlayPodcastList = { feeds, startIndex ->
                         // 过滤出有播客URL的Feed
-                        val podcastFeeds = feeds.filter { it.labels.podcastUrl.isNotBlank() }
+                        val podcastFeeds = feeds.filter { !it.labels.podcastUrl.isNullOrBlank() }
                         if (podcastFeeds.isNotEmpty()) {
                             // 找到当前Feed在过滤后列表中的正确索引
                             val targetFeed = feeds[startIndex]

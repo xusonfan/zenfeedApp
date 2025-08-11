@@ -158,14 +158,14 @@ fun FeedDetailScreen(
                         if (isPlaying) {
                             it.pause()
                         } else {
-                            if (it.isSameTrack(currentFeed.labels.podcastUrl)) {
+                            if (it.isSameTrack(currentFeed.labels.podcastUrl ?: "")) {
                                 it.resume()
                             } else {
                                 // 优先使用播放列表功能，如果没有提供则使用单曲播放
                                 if (onPlayPodcastList != null) {
                                     // 使用全部feeds作为播放列表，从当前feed开始播放
                                     val currentIndex = allFeeds.indexOfFirst {
-                                        it.labels.podcastUrl == currentFeed.labels.podcastUrl && currentFeed.labels.podcastUrl.isNotBlank()
+                                        it.labels.podcastUrl == currentFeed.labels.podcastUrl && !currentFeed.labels.podcastUrl.isNullOrBlank()
                                     }.takeIf { it >= 0 } ?: pagerState.currentPage
                                     onPlayPodcastList(allFeeds, currentIndex)
                                 } else {
@@ -189,9 +189,9 @@ fun FeedDetailScreen(
                         // 根据滚动进度在来源和标题之间过渡
                         Text(
                             text = if (scrollProgress < 0.5f) {
-                                currentFeed.labels.source
+                                currentFeed.labels.source ?: "未知来源"
                             } else {
-                                currentFeed.labels.title
+                                currentFeed.labels.title ?: "未知标题"
                             },
                             style = MaterialTheme.typography.titleMedium,
                             maxLines = 1,
@@ -215,7 +215,7 @@ fun FeedDetailScreen(
                 actions = {
                     IconButton(
                         onClick = {
-                            onOpenWebView(currentFeed.labels.link, currentFeed.labels.title)
+                            onOpenWebView(currentFeed.labels.link ?: "", currentFeed.labels.title ?: "未知标题")
                         }
                     ) {
                         Icon(
@@ -432,7 +432,7 @@ fun PlaylistDialog(
                                     modifier = Modifier.weight(1f)
                                 ) {
                                     Text(
-                                        text = feedItem.labels.title,
+                                        text = feedItem.labels.title ?: "未知标题",
                                         style = MaterialTheme.typography.bodyMedium,
                                         fontWeight = if (isCurrentPlaying) FontWeight.Bold else FontWeight.Normal,
                                         color = if (isCurrentPlaying) {
@@ -445,7 +445,7 @@ fun PlaylistDialog(
                                     )
                                     Spacer(modifier = Modifier.height(4.dp))
                                     Text(
-                                        text = "${feedItem.labels.source} • ${feedItem.formattedTime}",
+                                        text = "${feedItem.labels.source ?: "未知来源"} • ${feedItem.formattedTime}",
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                                         maxLines = 1,
@@ -514,7 +514,7 @@ fun FeedDetailPage(
         // 文章标题
         item {
             Text(
-                text = feed.labels.title,
+                text = feed.labels.title ?: "未知标题",
                 style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
                 modifier = Modifier.padding(top = 16.dp)
             )
@@ -524,7 +524,7 @@ fun FeedDetailPage(
         item {
             Spacer(modifier = Modifier.height(8.dp))
             Text(
-                text = "${feed.labels.source} • 发布于: ${feed.formattedTime}",
+                text = "${feed.labels.source ?: "未知来源"} • 发布于: ${feed.formattedTime}",
                 style = MaterialTheme.typography.labelMedium,
                 color = Color.Gray
             )
@@ -595,7 +595,7 @@ fun FeedDetailPage(
         // 文章内容
         item {
             Spacer(modifier = Modifier.height(16.dp))
-            HtmlText(html = feed.labels.summaryHtmlSnippet)
+            HtmlText(html = feed.labels.summaryHtmlSnippet ?: "")
         }
     }
     

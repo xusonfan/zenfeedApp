@@ -135,17 +135,17 @@ class FeedsViewModel(application: Application) : AndroidViewModel(application) {
      * 标记文章为已读
      */
     fun markFeedAsRead(feed: Feed) {
-        val feedId = "${feed.labels.title}-${feed.time}"
+        val feedId = "${feed.labels.title ?: ""}-${feed.time}"
         readFeedIds.add(feedId)
         updateFilteredFeeds() // 重新更新UI以反映阅读状态变化
-        android.util.Log.d("FeedsViewModel", "标记文章为已读: ${feed.labels.title}")
+        android.util.Log.d("FeedsViewModel", "标记文章为已读: ${feed.labels.title ?: "未知标题"}")
     }
     
     /**
      * 检查文章是否已读
      */
     private fun isFeedRead(feed: Feed): Boolean {
-        val feedId = "${feed.labels.title}-${feed.time}"
+        val feedId = "${feed.labels.title ?: ""}-${feed.time}"
         return readFeedIds.contains(feedId)
     }
     
@@ -159,7 +159,7 @@ class FeedsViewModel(application: Application) : AndroidViewModel(application) {
         }
         
         val categories = allFeeds
-            .map { it.labels.category }
+            .mapNotNull { it.labels.category }
             .filter { it.isNotBlank() }
             .distinct()
             .sorted()

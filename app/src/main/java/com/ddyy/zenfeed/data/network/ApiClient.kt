@@ -95,6 +95,10 @@ object ApiClient {
         val settingsDataStore = SettingsDataStore(context)
         val builder = OkHttpClient.Builder()
             .addInterceptor(loggingInterceptor)
+            // 添加连接超时和读取超时
+            .connectTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
+            .readTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
+            .writeTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
         
         // 配置代理
         runBlocking {

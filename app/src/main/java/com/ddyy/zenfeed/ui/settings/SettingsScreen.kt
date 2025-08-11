@@ -207,7 +207,13 @@ private fun ApiUrlSettingCard(
                     focusedBorderColor = MaterialTheme.colorScheme.primary,
                     focusedLabelColor = MaterialTheme.colorScheme.primary
                 ),
-                supportingText = { Text("API服务的基础地址，需以 http:// 或 https:// 开头") }
+                supportingText = {
+                    Text(
+                        text = "API服务的基础地址，需以 http:// 或 https:// 开头\n" +
+                               "注意：如果服务器不支持HTTPS，请使用 http:// 协议",
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
             )
 
             // 后端URL输入框
@@ -353,6 +359,13 @@ private fun ProxySettingCard(
     var tempProxyUsername by remember(proxyUsername) { mutableStateOf(proxyUsername) }
     var tempProxyPassword by remember(proxyPassword) { mutableStateOf(proxyPassword) }
     
+    // 检查是否有变更
+    val hasChanges = tempProxyEnabled != proxyEnabled ||
+                    tempProxyHost != proxyHost ||
+                    tempProxyPort != proxyPort.toString() ||
+                    tempProxyUsername != proxyUsername ||
+                    tempProxyPassword != proxyPassword
+    
     Card(
         modifier = Modifier.fillMaxWidth(),
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
@@ -477,78 +490,78 @@ private fun ProxySettingCard(
                     ),
                     visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation()
                 )
-                
-                // 代理设置的保存按钮
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+            }
+            
+            // 代理设置的保存按钮（移到条件外，确保关闭代理时也能保存）
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                // 重置代理按钮
+                OutlinedButton(
+                    onClick = {
+                        tempProxyEnabled = SettingsDataStore.DEFAULT_PROXY_ENABLED
+                        tempProxyHost = SettingsDataStore.DEFAULT_PROXY_HOST
+                        tempProxyPort = SettingsDataStore.DEFAULT_PROXY_PORT.toString()
+                        tempProxyUsername = SettingsDataStore.DEFAULT_PROXY_USERNAME
+                        tempProxyPassword = SettingsDataStore.DEFAULT_PROXY_PASSWORD
+                        onProxyEnabledChange(SettingsDataStore.DEFAULT_PROXY_ENABLED)
+                        onProxyHostChange(SettingsDataStore.DEFAULT_PROXY_HOST)
+                        onProxyPortChange(SettingsDataStore.DEFAULT_PROXY_PORT)
+                        onProxyUsernameChange(SettingsDataStore.DEFAULT_PROXY_USERNAME)
+                        onProxyPasswordChange(SettingsDataStore.DEFAULT_PROXY_PASSWORD)
+                    },
+                    modifier = Modifier.weight(1f),
+                    enabled = !isLoading,
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        contentColor = MaterialTheme.colorScheme.error
+                    ),
+                    border = androidx.compose.foundation.BorderStroke(
+                        1.dp,
+                        MaterialTheme.colorScheme.error
+                    )
                 ) {
-                    // 重置代理按钮
-                    OutlinedButton(
-                        onClick = {
-                            tempProxyEnabled = SettingsDataStore.DEFAULT_PROXY_ENABLED
-                            tempProxyHost = SettingsDataStore.DEFAULT_PROXY_HOST
-                            tempProxyPort = SettingsDataStore.DEFAULT_PROXY_PORT.toString()
-                            tempProxyUsername = SettingsDataStore.DEFAULT_PROXY_USERNAME
-                            tempProxyPassword = SettingsDataStore.DEFAULT_PROXY_PASSWORD
-                            onProxyEnabledChange(SettingsDataStore.DEFAULT_PROXY_ENABLED)
-                            onProxyHostChange(SettingsDataStore.DEFAULT_PROXY_HOST)
-                            onProxyPortChange(SettingsDataStore.DEFAULT_PROXY_PORT)
-                            onProxyUsernameChange(SettingsDataStore.DEFAULT_PROXY_USERNAME)
-                            onProxyPasswordChange(SettingsDataStore.DEFAULT_PROXY_PASSWORD)
-                        },
-                        modifier = Modifier.weight(1f),
-                        enabled = !isLoading,
-                        shape = RoundedCornerShape(12.dp),
-                        colors = ButtonDefaults.outlinedButtonColors(
-                            contentColor = MaterialTheme.colorScheme.error
-                        ),
-                        border = androidx.compose.foundation.BorderStroke(
-                            1.dp,
-                            MaterialTheme.colorScheme.error
+                    Icon(
+                        imageVector = Icons.Default.Restore,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("重置代理")
+                }
+                
+                // 应用代理设置按钮
+                FilledTonalButton(
+                    onClick = {
+                        // 先更新ViewModel中的值，然后触发保存
+                        onProxyEnabledChange(tempProxyEnabled)
+                        onProxyHostChange(tempProxyHost)
+                        tempProxyPort.toIntOrNull()?.let { onProxyPortChange(it) }
+                        onProxyUsernameChange(tempProxyUsername)
+                        onProxyPasswordChange(tempProxyPassword)
+                        // 触发保存代理设置
+                        onSaveProxy()
+                    },
+                    modifier = Modifier.weight(1f),
+                    enabled = !isLoading && hasChanges && (!tempProxyEnabled ||
+                        (tempProxyEnabled && tempProxyHost.trim().isNotEmpty() && tempProxyPort.toIntOrNull() != null)),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    if (isLoading) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(18.dp),
+                            strokeWidth = 2.dp,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer
                         )
-                    ) {
+                    } else {
                         Icon(
-                            imageVector = Icons.Default.Restore,
+                            imageVector = Icons.Default.Save,
                             contentDescription = null,
                             modifier = Modifier.size(18.dp)
                         )
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text("重置代理")
-                    }
-                    
-                    // 应用代理设置按钮
-                    FilledTonalButton(
-                        onClick = {
-                            // 先更新ViewModel中的值，然后触发保存
-                            onProxyEnabledChange(tempProxyEnabled)
-                            onProxyHostChange(tempProxyHost)
-                            tempProxyPort.toIntOrNull()?.let { onProxyPortChange(it) }
-                            onProxyUsernameChange(tempProxyUsername)
-                            onProxyPasswordChange(tempProxyPassword)
-                            // 触发保存代理设置
-                            onSaveProxy()
-                        },
-                        modifier = Modifier.weight(1f),
-                        enabled = !isLoading && (!tempProxyEnabled ||
-                            (tempProxyEnabled && tempProxyHost.trim().isNotEmpty() && tempProxyPort.toIntOrNull() != null)),
-                        shape = RoundedCornerShape(12.dp)
-                    ) {
-                        if (isLoading) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(18.dp),
-                                strokeWidth = 2.dp,
-                                color = MaterialTheme.colorScheme.onPrimaryContainer
-                            )
-                        } else {
-                            Icon(
-                                imageVector = Icons.Default.Save,
-                                contentDescription = null,
-                                modifier = Modifier.size(18.dp)
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text("应用代理")
-                        }
+                        Text("应用代理")
                     }
                 }
             }

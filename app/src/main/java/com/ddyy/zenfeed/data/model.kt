@@ -58,27 +58,27 @@ data class FeedRequest(
 
 data class Labels(
     @SerializedName("category")
-    val category: String,
+    val category: String?,
     @SerializedName("content")
-    val content: String,
+    val content: String?,
     @SerializedName("link")
-    val link: String,
+    val link: String?,
     @SerializedName("podcast_url")
-    val podcastUrl: String,
+    val podcastUrl: String?,
     @SerializedName("pub_time")
-    val pubTime: String,
+    val pubTime: String?,
     @SerializedName("source")
-    val source: String,
+    val source: String?,
     @SerializedName("summary")
-    val summary: String,
+    val summary: String?,
     @SerializedName("summary_html_snippet")
-    val summaryHtmlSnippet: String,
+    val summaryHtmlSnippet: String?,
     @SerializedName("tags")
-    val tags: String,
+    val tags: String?,
     @SerializedName("title")
-    val title: String,
+    val title: String?,
     @SerializedName("type")
-    val type: String
+    val type: String?
 )
 
 /**

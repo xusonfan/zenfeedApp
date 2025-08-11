@@ -124,7 +124,7 @@ fun FeedItem(
                     Spacer(modifier = Modifier.width(8.dp))
                     
                     Text(
-                        text = feed.labels.source,
+                        text = feed.labels.source ?: "未知来源",
                         style = MaterialTheme.typography.labelMedium.copy(
                             fontWeight = FontWeight.Medium
                         ),
@@ -157,7 +157,7 @@ fun FeedItem(
                 
                 // 标题 - 根据阅读状态调整透明度
                 Text(
-                    text = feed.labels.title,
+                    text = feed.labels.title ?: "未知标题",
                     style = MaterialTheme.typography.titleMedium.copy(
                         fontWeight = FontWeight.Bold
                     ),
@@ -170,7 +170,7 @@ fun FeedItem(
             
                 // 摘要内容处理
                 val displayContent = remember(feed.labels.summaryHtmlSnippet, feed.labels.summary) {
-                    if (feed.labels.summaryHtmlSnippet.isNotBlank()) {
+                    if (!feed.labels.summaryHtmlSnippet.isNullOrBlank()) {
                         feed.labels.summaryHtmlSnippet
                             .replace(Regex("<[^>]*>"), "")
                             .replace("&nbsp;", " ")
@@ -181,7 +181,7 @@ fun FeedItem(
                             .replace("&#39;", "'")
                             .trim()
                     } else {
-                        feed.labels.summary.trim()
+                        feed.labels.summary?.trim() ?: ""
                     }
                 }
                 
@@ -203,7 +203,7 @@ fun FeedItem(
             }
 
             // 播客播放按钮 - 绝对定位在右上角
-            if (feed.labels.podcastUrl.isNotBlank() && (onPlayPodcastList != null || onTogglePlayPause != null)) {
+            if (!feed.labels.podcastUrl.isNullOrBlank() && (onPlayPodcastList != null || onTogglePlayPause != null)) {
                 FilledTonalButton(
                     onClick = {
                         if (isCurrentlyPlaying) {
@@ -480,7 +480,7 @@ fun FeedsScreenContent(
 
                     // 预先按分类对 feeds 进行分组，避免在 Pager 内部进行昂贵的过滤操作
                     val categorizedFeeds = remember(feedsUiState.feeds) {
-                        val grouped = feedsUiState.feeds.groupBy { it.labels.category }
+                        val grouped = feedsUiState.feeds.groupBy { it.labels.category ?: "" }
                         // 将“全部”类别也添加进去，通过调换合并顺序，确保“全部”列表覆盖任何可能存在的、分类为空字符串的列表
                         grouped + ("" to feedsUiState.feeds)
                     }
@@ -516,11 +516,11 @@ fun FeedsScreenContent(
                             ) {
                                 items(
                                     items = feedsForCategory,
-                                    key = { feed -> "${feed.labels.title}-${feed.time}" },
+                                    key = { feed -> "${feed.labels.title ?: "unknown"}-${feed.time}" },
                                     contentType = { "FeedItem" }
                                 ) { feed ->
                                     val isCurrentlyPlaying = currentPlaylist.any {
-                                        it.labels.podcastUrl == feed.labels.podcastUrl && feed.labels.podcastUrl.isNotBlank()
+                                        it.labels.podcastUrl == feed.labels.podcastUrl && !feed.labels.podcastUrl.isNullOrBlank()
                                     } && playlistInfo?.let { info ->
                                         info.currentIndex >= 0 &&
                                                 info.currentIndex < currentPlaylist.size &&
@@ -530,10 +530,10 @@ fun FeedsScreenContent(
                                     FeedItem(
                                         feed = feed,
                                         onClick = { onFeedClick(feed) },
-                                        onPlayPodcastList = if (feed.labels.podcastUrl.isNotBlank()) {
+                                        onPlayPodcastList = if (!feed.labels.podcastUrl.isNullOrBlank()) {
                                             { onPlayPodcastList?.invoke(feedsUiState.feeds, feedsUiState.feeds.indexOf(feed)) }
                                         } else null,
-                                        onTogglePlayPause = if (feed.labels.podcastUrl.isNotBlank()) {
+                                        onTogglePlayPause = if (!feed.labels.podcastUrl.isNullOrBlank()) {
                                             { playerViewModel?.togglePlayPause() }
                                         } else null,
                                         isCurrentlyPlaying = isCurrentlyPlaying,
