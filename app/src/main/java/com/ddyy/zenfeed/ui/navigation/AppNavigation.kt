@@ -1,5 +1,6 @@
 package com.ddyy.zenfeed.ui.navigation
 
+import android.util.Log
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -42,10 +43,12 @@ fun AppNavigation(sharedViewModel: SharedViewModel) {
     // 监听代理启用状态
     val isProxyEnabled by settingsDataStore.proxyEnabled.collectAsState(initial = false)
 
-    // 确保播放器服务在应用启动时就绑定
-    DisposableEffect(Unit) {
+    // 确保播放器服务在应用启动时就绑定，使用稳定的key避免主题切换时重新绑定
+    DisposableEffect(playerViewModel) {
+        Log.d("AppNavigation", "绑定播放器服务")
         playerViewModel.bindService(context)
         onDispose {
+            Log.d("AppNavigation", "准备解绑播放器服务")
             playerViewModel.unbindService(context)
         }
     }
@@ -77,7 +80,7 @@ fun AppNavigation(sharedViewModel: SharedViewModel) {
                         sharedViewModel.updateAllFeeds(currentFeedsState.feeds)
                     }
                     // 记录进入详情页时的分类
-                    android.util.Log.d("AppNavigation", "进入详情页，分类: ${feedsViewModel.selectedCategory}, 文章: ${feed.labels.title}")
+                    Log.d("AppNavigation", "进入详情页，分类: ${feedsViewModel.selectedCategory}, 文章: ${feed.labels.title}")
                     sharedViewModel.setEntryCategory(feedsViewModel.selectedCategory)
                     // 然后选择Feed（这样getCurrentFeedIndex能找到正确的索引）
                     sharedViewModel.selectFeed(feed)
@@ -160,7 +163,7 @@ fun AppNavigation(sharedViewModel: SharedViewModel) {
                     initialFeedIndex = initialIndex,
                     onBack = {
                         // 设置滚动标志，准备回到列表时滚动到最后浏览的文章
-                        android.util.Log.d("AppNavigation", "从详情页返回，最后浏览: ${sharedViewModel.lastViewedFeed?.labels?.title}, 分类: ${sharedViewModel.detailEntryCategory}")
+                        Log.d("AppNavigation", "从详情页返回，最后浏览: ${sharedViewModel.lastViewedFeed?.labels?.title}, 分类: ${sharedViewModel.detailEntryCategory}")
                         sharedViewModel.setScrollToLastViewed(true)
                         // 标记离开详情页
                         sharedViewModel.updateDetailPageStatus(false)
@@ -186,7 +189,7 @@ fun AppNavigation(sharedViewModel: SharedViewModel) {
                     },
                     onFeedChanged = { newFeed ->
                         // 当滑动到新的Feed时，更新SharedViewModel中的选中Feed并标记为已读
-                        android.util.Log.d("AppNavigation", "详情页切换文章: ${newFeed.labels.title}")
+                        Log.d("AppNavigation", "详情页切换文章: ${newFeed.labels.title}")
                         sharedViewModel.selectFeed(newFeed)
                         // 更新最后浏览的文章
                         sharedViewModel.updateLastViewedFeed(newFeed)

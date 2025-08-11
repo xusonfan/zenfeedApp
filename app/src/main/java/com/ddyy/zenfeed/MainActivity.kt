@@ -1,7 +1,9 @@
 package com.ddyy.zenfeed
 
 import android.content.Intent
+import android.content.res.Configuration
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -52,5 +54,14 @@ class MainActivity : ComponentActivity() {
                 sharedViewModel.setNavigateToDetail(true)
             }
         }
+    }
+    
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+        Log.d("MainActivity", "配置变更: uiMode=${newConfig.uiMode}, orientation=${newConfig.orientation}")
+        
+        // 当配置变更时（如夜间模式切换），不需要重建Activity
+        // Compose会自动响应主题变化并重新组合UI
+        // 这样可以保持播放服务的连接状态
     }
 }

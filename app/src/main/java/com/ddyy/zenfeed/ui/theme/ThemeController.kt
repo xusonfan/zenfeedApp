@@ -2,6 +2,7 @@ package com.ddyy.zenfeed.ui.theme
 
 import android.app.Activity
 import android.content.Context
+import android.util.Log
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -71,6 +72,7 @@ fun rememberThemeController(settingsDataStore: SettingsDataStore): ThemeControll
     
     // 当主题模式或系统主题变化时，更新useDarkTheme
     LaunchedEffect(themeController.currentThemeMode, isSystemDark) {
+        Log.d("ThemeController", "主题状态更新 - 模式: ${themeController.currentThemeMode}, 系统暗色: $isSystemDark")
         themeController.updateThemeMode(themeController.currentThemeMode, isSystemDark)
     }
     

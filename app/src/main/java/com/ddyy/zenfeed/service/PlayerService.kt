@@ -75,57 +75,82 @@ class PlayerService : Service() {
         intent?.let {
             MediaButtonReceiver.handleIntent(mediaSession, it)
         }
+        // 使用START_STICKY确保服务在系统资源紧张时被杀死后能自动重启
+        // 使用START_NOT_STICKY可以避免在配置变更时不必要的重启
         return START_STICKY
     }
 
     override fun onCreate() {
         super.onCreate()
+        Log.d("PlayerService", "PlayerService onCreate")
         createNotificationChannel()
-        mediaSession = MediaSessionCompat(this, "PlayerService")
-        mediaSession?.setCallback(object : MediaSessionCompat.Callback() {
-            override fun onPlay() {
-                try {
-                    resume()
-                } catch (e: Exception) {
-                    Log.e("PlayerService", "播放时出错", e)
-                }
-            }
-
-            override fun onPause() {
-                try {
-                    pause()
-                } catch (e: Exception) {
-                    Log.e("PlayerService", "暂停时出错", e)
-                }
-            }
-
-            override fun onSkipToNext() {
-                try {
-                    Log.d("PlayerService", "收到下一首命令")
-                    if (playlist.isNotEmpty() && (isRepeatMode || hasNextTrack())) {
-                        playNextTrack()
-                    } else {
-                        Log.d("PlayerService", "没有下一首可播放")
+        
+        // 创建MediaSession，确保它在整个服务生命周期中保持活跃
+        mediaSession = MediaSessionCompat(this, "PlayerService").apply {
+            setCallback(object : MediaSessionCompat.Callback() {
+                override fun onPlay() {
+                    try {
+                        Log.d("PlayerService", "MediaSession收到播放命令")
+                        resume()
+                    } catch (e: Exception) {
+                        Log.e("PlayerService", "播放时出错", e)
                     }
-                } catch (e: Exception) {
-                    Log.e("PlayerService", "播放下一首时出错", e)
                 }
-            }
 
-            override fun onSkipToPrevious() {
-                try {
-                    Log.d("PlayerService", "收到上一首命令")
-                    if (playlist.isNotEmpty() && (isRepeatMode || hasPreviousTrack())) {
-                        playPreviousTrack()
-                    } else {
-                        Log.d("PlayerService", "没有上一首可播放")
+                override fun onPause() {
+                    try {
+                        Log.d("PlayerService", "MediaSession收到暂停命令")
+                        pause()
+                    } catch (e: Exception) {
+                        Log.e("PlayerService", "暂停时出错", e)
                     }
-                } catch (e: Exception) {
-                    Log.e("PlayerService", "播放上一首时出错", e)
                 }
-            }
-        })
-        mediaSession?.isActive = true
+
+                override fun onSkipToNext() {
+                    try {
+                        Log.d("PlayerService", "MediaSession收到下一首命令")
+                        if (playlist.isNotEmpty() && (isRepeatMode || hasNextTrack())) {
+                            playNextTrack()
+                        } else {
+                            Log.d("PlayerService", "没有下一首可播放")
+                        }
+                    } catch (e: Exception) {
+                        Log.e("PlayerService", "播放下一首时出错", e)
+                    }
+                }
+
+                override fun onSkipToPrevious() {
+                    try {
+                        Log.d("PlayerService", "MediaSession收到上一首命令")
+                        if (playlist.isNotEmpty() && (isRepeatMode || hasPreviousTrack())) {
+                            playPreviousTrack()
+                        } else {
+                            Log.d("PlayerService", "没有上一首可播放")
+                        }
+                    } catch (e: Exception) {
+                        Log.e("PlayerService", "播放上一首时出错", e)
+                    }
+                }
+            })
+            
+            // 设置MediaSession为活跃状态，确保它能接收媒体按钮事件
+            isActive = true
+            
+            // 设置初始播放状态
+            setPlaybackState(
+                PlaybackStateCompat.Builder()
+                    .setActions(
+                        PlaybackStateCompat.ACTION_PLAY or
+                        PlaybackStateCompat.ACTION_PAUSE or
+                        PlaybackStateCompat.ACTION_SKIP_TO_NEXT or
+                        PlaybackStateCompat.ACTION_SKIP_TO_PREVIOUS
+                    )
+                    .setState(PlaybackStateCompat.STATE_NONE, 0L, 0.0f)
+                    .build()
+            )
+        }
+        
+        Log.d("PlayerService", "MediaSession创建完成，isActive: ${mediaSession?.isActive}")
     }
 
     fun setPlaylist(feeds: List<Feed>, startIndex: Int) {
@@ -611,6 +636,24 @@ class PlayerService : Service() {
     }
     
     /**
+     * 获取当前播放状态信息，用于UI恢复
+     */
+    fun getCurrentPlaybackInfo(): Triple<Boolean, Boolean, String?> {
+        return Triple(
+            isPrepared && mediaPlayer?.isPlaying == true, // 是否正在播放
+            isPrepared, // 是否已准备好
+            currentTrackUrl // 当前播放的URL
+        )
+    }
+    
+    /**
+     * 检查服务是否有活跃的播放会话
+     */
+    fun hasActiveSession(): Boolean {
+        return mediaSession?.isActive == true && (isPrepared || playlist.isNotEmpty())
+    }
+    
+    /**
      * 预加载下一个播客
      */
     private fun preloadNextTrack() {
@@ -749,12 +792,27 @@ class PlayerService : Service() {
     }
 
     override fun onDestroy() {
+        Log.d("PlayerService", "PlayerService onDestroy")
         stopProgressUpdate()
+        
+        // 释放媒体播放器资源
         mediaPlayer?.release()
         mediaPlayer = null
+        
+        // 清理预加载资源
         cleanupPreloadedTrack()
-        mediaSession?.release()
+        
+        // 释放MediaSession，但要确保在真正销毁时才释放
+        mediaSession?.let { session ->
+            session.isActive = false
+            session.release()
+        }
+        mediaSession = null
+        
+        // 清理缓存文件
         cleanupOldCacheFiles()
+        
+        Log.d("PlayerService", "PlayerService销毁完成")
         super.onDestroy()
     }
     
