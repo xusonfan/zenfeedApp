@@ -216,6 +216,28 @@ class PlayerService : Service() {
             preloadTrackUrl = null
             preloadedTrackIndex = -1
             
+            // 重要修复：为预加载的播放器设置onCompletionListener和onErrorListener
+            mediaPlayer?.apply {
+                setOnCompletionListener {
+                    stopProgressUpdate()
+                    updatePlaybackState(PlaybackStateCompat.STATE_STOPPED)
+                    // 根据播放模式决定是否播放下一首
+                    if (isRepeatMode || hasNextTrack()) {
+                        playNextTrack()
+                    } else {
+                        // 播放列表结束，停止播放
+                        Log.d("PlayerService", "播放列表播放完毕")
+                    }
+                }
+                setOnErrorListener { _, what, extra ->
+                    Log.e("PlayerService", "预加载播放器播放错误: what=$what, extra=$extra")
+                    stopProgressUpdate()
+                    updatePlaybackState(PlaybackStateCompat.STATE_ERROR)
+                    isPrepared = false
+                    true
+                }
+            }
+            
             // 设置元数据
             val track = playlist.getOrNull(currentTrackIndex)
             val duration = mediaPlayer?.duration?.toLong() ?: 0L
