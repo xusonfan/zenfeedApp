@@ -276,10 +276,15 @@ fun CategoryTabs(
     pagerState: PagerState,
     categories: List<String>,
     onTabSelected: (Int) -> Unit,
+    onTabDoubleClick: (Int) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     // 使用remember监听categories变化，确保tab栏与数据同步
     val allCategories = remember(categories) { listOf("全部") + categories }
+    
+    // 双击检测状态 - 为每个tab维护独立的双击状态
+    var lastClickTimes by remember { mutableStateOf(mutableMapOf<Int, Long>()) }
+    val doubleTapThreshold = 300L // 双击时间间隔阈值（毫秒）
 
     ScrollableTabRow(
         selectedTabIndex = pagerState.currentPage,
@@ -297,7 +302,24 @@ fun CategoryTabs(
         allCategories.forEachIndexed { index, category ->
             Tab(
                 selected = pagerState.currentPage == index,
-                onClick = { onTabSelected(index) },
+                onClick = {
+                    val currentTime = System.currentTimeMillis()
+                    val lastTime = lastClickTimes[index] ?: 0L
+                    
+                    if (currentTime - lastTime <= doubleTapThreshold) {
+                        // 双击事件：滚动到列表顶部
+                        onTabDoubleClick(index)
+                        lastClickTimes = lastClickTimes.toMutableMap().apply {
+                            put(index, 0L) // 重置时间避免三击
+                        }
+                    } else {
+                        // 单击事件：切换tab
+                        onTabSelected(index)
+                        lastClickTimes = lastClickTimes.toMutableMap().apply {
+                            put(index, currentTime)
+                        }
+                    }
+                },
                 text = {
                     Text(
                         text = category,
@@ -604,6 +626,27 @@ fun FeedsScreenContent(
                         onTabSelected = { page ->
                             coroutineScope.launch {
                                 pagerState.animateScrollToPage(page)
+                            }
+                        },
+                        onTabDoubleClick = { page ->
+                            // 双击tab时滚动到对应分类的列表顶部
+                            coroutineScope.launch {
+                                // 确保pager已经切换到正确页面
+                                if (pagerState.currentPage != page) {
+                                    pagerState.animateScrollToPage(page)
+                                    // 等待页面切换完成
+                                    kotlinx.coroutines.delay(300)
+                                }
+                                
+                                // 获取对应分类的列表状态并滚动到顶部
+                                val allCategories = listOf("") + feedsUiState.categories
+                                val category = if (page < allCategories.size) {
+                                    allCategories[page]
+                                } else {
+                                    "" // 默认为全部分类
+                                }
+                                val listState = listStates[category]
+                                listState?.animateScrollToItem(0)
                             }
                         }
                     )
