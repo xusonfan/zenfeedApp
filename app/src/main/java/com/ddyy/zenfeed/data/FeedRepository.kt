@@ -24,6 +24,7 @@ class FeedRepository(private val context: Context) {
     companion object {
         private const val CACHE_KEY_FEEDS = "cached_feeds"
         private const val CACHE_KEY_TIMESTAMP = "cache_timestamp"
+        private const val CACHE_KEY_READ_FEEDS = "read_feeds" // 已读文章ID集合
         private const val CACHE_EXPIRY_HOURS = 1 // 缓存过期时间（小时）
     }
 
@@ -159,7 +160,68 @@ class FeedRepository(private val context: Context) {
         sharedPreferences.edit()
             .remove(CACHE_KEY_FEEDS)
             .remove(CACHE_KEY_TIMESTAMP)
+            .remove(CACHE_KEY_READ_FEEDS)
             .apply()
         android.util.Log.d("FeedRepository", "Feed 缓存已清除")
+    }
+    
+    /**
+     * 保存已读文章ID集合
+     */
+    fun saveReadFeedIds(readFeedIds: Set<String>) {
+        try {
+            val readFeedsJson = gson.toJson(readFeedIds.toList())
+            sharedPreferences.edit()
+                .putString(CACHE_KEY_READ_FEEDS, readFeedsJson)
+                .apply()
+            android.util.Log.d("FeedRepository", "已读状态已保存，共 ${readFeedIds.size} 条")
+        } catch (e: Exception) {
+            android.util.Log.e("FeedRepository", "保存已读状态失败", e)
+        }
+    }
+    
+    /**
+     * 获取已读文章ID集合
+     */
+    fun getReadFeedIds(): Set<String> {
+        return try {
+            val readFeedsJson = sharedPreferences.getString(CACHE_KEY_READ_FEEDS, null)
+            if (readFeedsJson != null) {
+                val type = object : TypeToken<List<String>>() {}.type
+                val readFeedsList = gson.fromJson<List<String>>(readFeedsJson, type)
+                readFeedsList.toSet()
+            } else {
+                emptySet()
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("FeedRepository", "读取已读状态失败", e)
+            emptySet()
+        }
+    }
+    
+    /**
+     * 添加已读文章ID
+     */
+    fun addReadFeedId(feedId: String) {
+        val currentReadIds = getReadFeedIds().toMutableSet()
+        currentReadIds.add(feedId)
+        saveReadFeedIds(currentReadIds)
+    }
+    
+    /**
+     * 移除已读文章ID
+     */
+    fun removeReadFeedId(feedId: String) {
+        val currentReadIds = getReadFeedIds().toMutableSet()
+        if (currentReadIds.remove(feedId)) {
+            saveReadFeedIds(currentReadIds)
+        }
+    }
+    
+    /**
+     * 检查文章是否已读
+     */
+    fun isFeedRead(feedId: String): Boolean {
+        return getReadFeedIds().contains(feedId)
     }
 }

@@ -49,10 +49,21 @@ class FeedsViewModel(application: Application) : AndroidViewModel(application) {
         private set
 
     init {
+        loadReadFeedIds()
         loadCachedFeeds()
         getFeeds()
     }
 
+    /**
+     * 从持久化存储加载已读文章ID集合
+     */
+    private fun loadReadFeedIds() {
+        val persistedReadIds = feedRepository.getReadFeedIds()
+        readFeedIds.clear()
+        readFeedIds.addAll(persistedReadIds)
+        android.util.Log.d("FeedsViewModel", "已加载已读状态，共 ${readFeedIds.size} 条")
+    }
+    
     /**
      * 加载缓存的Feed列表（应用启动时调用）
      */
@@ -136,9 +147,27 @@ class FeedsViewModel(application: Application) : AndroidViewModel(application) {
      */
     fun markFeedAsRead(feed: Feed) {
         val feedId = "${feed.labels.title ?: ""}-${feed.time}"
-        readFeedIds.add(feedId)
-        updateFilteredFeeds() // 重新更新UI以反映阅读状态变化
-        android.util.Log.d("FeedsViewModel", "标记文章为已读: ${feed.labels.title ?: "未知标题"}")
+        if (!readFeedIds.contains(feedId)) {
+            readFeedIds.add(feedId)
+            // 立即持久化到存储
+            feedRepository.addReadFeedId(feedId)
+            updateFilteredFeeds() // 重新更新UI以反映阅读状态变化
+            android.util.Log.d("FeedsViewModel", "标记文章为已读: ${feed.labels.title ?: "未知标题"}")
+        }
+    }
+    
+    /**
+     * 标记文章为未读
+     */
+    fun markFeedAsUnread(feed: Feed) {
+        val feedId = "${feed.labels.title ?: ""}-${feed.time}"
+        if (readFeedIds.contains(feedId)) {
+            readFeedIds.remove(feedId)
+            // 立即从持久化存储中移除
+            feedRepository.removeReadFeedId(feedId)
+            updateFilteredFeeds() // 重新更新UI以反映阅读状态变化
+            android.util.Log.d("FeedsViewModel", "标记文章为未读: ${feed.labels.title ?: "未知标题"}")
+        }
     }
     
     /**
