@@ -58,8 +58,15 @@ fun AppNavigation(sharedViewModel: SharedViewModel) {
                     if (currentFeedsState is FeedsUiState.Success) {
                         sharedViewModel.updateAllFeeds(currentFeedsState.feeds)
                     }
+                    // 记录进入详情页时的分类
+                    android.util.Log.d("AppNavigation", "进入详情页，分类: ${feedsViewModel.selectedCategory}, 文章: ${feed.labels.title}")
+                    sharedViewModel.setEntryCategory(feedsViewModel.selectedCategory)
                     // 然后选择Feed（这样getCurrentFeedIndex能找到正确的索引）
                     sharedViewModel.selectFeed(feed)
+                    // 设置初始的最后浏览文章
+                    sharedViewModel.updateLastViewedFeed(feed)
+                    // 标记进入详情页
+                    sharedViewModel.updateDetailPageStatus(true)
                     // 标记文章为已读
                     feedsViewModel.markFeedAsRead(feed)
                     navController.navigate("feedDetail")
@@ -81,7 +88,8 @@ fun AppNavigation(sharedViewModel: SharedViewModel) {
                         playerViewModel.playPodcastPlaylist(podcastFeeds, correctedIndex)
                     }
                 },
-                playerViewModel = playerViewModel
+                playerViewModel = playerViewModel,
+                sharedViewModel = sharedViewModel
             )
         }
         composable("feedDetail") {
@@ -94,7 +102,14 @@ fun AppNavigation(sharedViewModel: SharedViewModel) {
                 FeedDetailScreen(
                     allFeeds = allFeeds,
                     initialFeedIndex = initialIndex,
-                    onBack = { navController.popBackStack() },
+                    onBack = {
+                        // 设置滚动标志，准备回到列表时滚动到最后浏览的文章
+                        android.util.Log.d("AppNavigation", "从详情页返回，最后浏览: ${sharedViewModel.lastViewedFeed?.labels?.title}, 分类: ${sharedViewModel.detailEntryCategory}")
+                        sharedViewModel.setScrollToLastViewed(true)
+                        // 标记离开详情页
+                        sharedViewModel.updateDetailPageStatus(false)
+                        navController.popBackStack()
+                    },
                     onOpenWebView = { url, title ->
                         sharedViewModel.setWebViewData(url, title)
                         navController.navigate("webview")
@@ -115,7 +130,10 @@ fun AppNavigation(sharedViewModel: SharedViewModel) {
                     },
                     onFeedChanged = { newFeed ->
                         // 当滑动到新的Feed时，更新SharedViewModel中的选中Feed并标记为已读
+                        android.util.Log.d("AppNavigation", "详情页切换文章: ${newFeed.labels.title}")
                         sharedViewModel.selectFeed(newFeed)
+                        // 更新最后浏览的文章
+                        sharedViewModel.updateLastViewedFeed(newFeed)
                         feedsViewModel.markFeedAsRead(newFeed)
                         
                         // 同步更新SharedViewModel中的allFeeds，以反映已读状态的变化

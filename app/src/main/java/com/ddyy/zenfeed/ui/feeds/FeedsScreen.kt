@@ -350,6 +350,7 @@ fun FeedsScreen(
     onSettingsClick: () -> Unit = {},
     onPlayPodcastList: ((List<Feed>, Int) -> Unit)? = null,
     playerViewModel: PlayerViewModel? = null,
+    sharedViewModel: com.ddyy.zenfeed.ui.SharedViewModel? = null,
     modifier: Modifier = Modifier
 ) {
     val feedsUiState = feedsViewModel.feedsUiState
@@ -383,6 +384,7 @@ fun FeedsScreen(
         playerViewModel = playerViewModel,
         listStates = listStates,
         scrollPositions = feedsViewModel.scrollPositions,
+        sharedViewModel = sharedViewModel,
         modifier = modifier
     )
 }
@@ -402,6 +404,7 @@ fun FeedsScreenContent(
     playerViewModel: PlayerViewModel?,
     listStates: MutableMap<String, LazyStaggeredGridState>,
     scrollPositions: Map<String, Pair<Int, Int>>,
+    sharedViewModel: com.ddyy.zenfeed.ui.SharedViewModel? = null,
     modifier: Modifier = Modifier
 ) {
     val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
@@ -569,6 +572,61 @@ fun FeedsScreenContent(
                         val grouped = feedsUiState.feeds.groupBy { it.labels.category ?: "" }
                         // 将"全部"类别也添加进去，通过调换合并顺序，确保"全部"列表覆盖任何可能存在的、分类为空字符串的列表
                         grouped + ("" to feedsUiState.feeds)
+                    }
+                    
+                    // 处理返回时的滚动定位 - 检测页面重新进入
+                    LaunchedEffect(Unit) {
+                        android.util.Log.d("FeedsScreen", "FeedsScreen 页面进入，检查是否需要滚动")
+                        
+                        // 检查是否有待处理的滚动任务
+                        if (sharedViewModel?.lastViewedFeed != null && !sharedViewModel.lastViewedFeed?.labels?.title.isNullOrEmpty()) {
+                            val targetCategory = sharedViewModel.detailEntryCategory
+                            val lastViewedFeed = sharedViewModel.lastViewedFeed!!
+                            
+                            android.util.Log.d("FeedsScreen", "检测到从详情页返回，准备滚动到文章: ${lastViewedFeed.labels.title}, 分类: '$targetCategory', 当前分类: '$selectedCategory'")
+                            
+                            // 等待UI完全加载
+                            kotlinx.coroutines.delay(200)
+                            
+                            // 确保切换到正确的分类
+                            if (targetCategory != selectedCategory) {
+                                android.util.Log.d("FeedsScreen", "切换分类从 '$selectedCategory' 到 '$targetCategory'")
+                                onCategorySelected(targetCategory)
+                                // 等待分类切换和Pager动画完成
+                                kotlinx.coroutines.delay(800)
+                            } else {
+                                // 即使在同一分类，也等待一下确保UI稳定
+                                kotlinx.coroutines.delay(300)
+                            }
+                            
+                            // 滚动到指定文章
+                            val targetFeeds = categorizedFeeds[targetCategory] ?: emptyList()
+                            val targetIndex = sharedViewModel.getLastViewedFeedIndexInCategory(targetFeeds)
+                            
+                            android.util.Log.d("FeedsScreen", "目标索引: $targetIndex, 总数: ${targetFeeds.size}")
+                            android.util.Log.d("FeedsScreen", "目标文章标题: ${targetFeeds.getOrNull(targetIndex)?.labels?.title}")
+                            
+                            if (targetIndex >= 0 && targetIndex < targetFeeds.size) {
+                                // 确保listState存在并且是当前正确的状态
+                                val listState = listStates[targetCategory]
+                                if (listState != null) {
+                                    try {
+                                        android.util.Log.d("FeedsScreen", "开始滚动到索引: $targetIndex")
+                                        listState.animateScrollToItem(targetIndex)
+                                        android.util.Log.d("FeedsScreen", "滚动完成")
+                                    } catch (e: Exception) {
+                                        android.util.Log.e("FeedsScreen", "滚动失败", e)
+                                    }
+                                } else {
+                                    android.util.Log.w("FeedsScreen", "ListState 不存在: '$targetCategory'")
+                                }
+                            } else {
+                                android.util.Log.w("FeedsScreen", "无效的目标索引: $targetIndex")
+                            }
+                            
+                            // 清除滚动状态，避免重复触发
+                            sharedViewModel.clearScrollState()
+                        }
                     }
                     
                     // 内容区域
@@ -883,7 +941,8 @@ fun FeedsScreenSuccessPreview() {
             onPlayPodcastList = null,
             playerViewModel = null,
             listStates = remember { mutableMapOf() },
-            scrollPositions = emptyMap()
+            scrollPositions = emptyMap(),
+            sharedViewModel = null
         )
     }
 }
