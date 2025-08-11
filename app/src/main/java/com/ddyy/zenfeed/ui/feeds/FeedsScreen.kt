@@ -670,6 +670,58 @@ fun FeedsScreenContent(
     ) {
         Scaffold(
             modifier = modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
+            floatingActionButton = {
+                // 全局播放控制悬浮按钮
+                if (playerViewModel != null) {
+                    val isPlaying by playerViewModel.isPlaying.observeAsState(false)
+                    val playlistInfo by playerViewModel.playlistInfo.observeAsState()
+                    
+                    // 获取当前播放的播客或者第一个有效播客作为默认播客
+                    val currentPlayingFeed = remember(playlistInfo) {
+                        playlistInfo?.let { info ->
+                            val currentPlaylist = playerViewModel.getCurrentPlaylist()
+                            if (info.currentIndex >= 0 && info.currentIndex < currentPlaylist.size) {
+                                currentPlaylist[info.currentIndex]
+                            } else null
+                        }
+                    }
+                    
+                    // 如果有当前播放的或者列表中有播客，显示悬浮按钮
+                    val hasValidPodcast = currentPlayingFeed?.labels?.podcastUrl?.isNotBlank() == true ||
+                            (feedsUiState as? FeedsUiState.Success)?.feeds?.any { !it.labels.podcastUrl.isNullOrBlank() } == true
+                    
+                    if (hasValidPodcast) {
+                        FloatingActionButton(
+                            onClick = {
+                                playerViewModel.playerService?.let { service ->
+                                    if (isPlaying) {
+                                        service.pause()
+                                    } else {
+                                        if (currentPlayingFeed != null) {
+                                            // 如果有当前播放的播客，恢复播放
+                                            service.resume()
+                                        } else {
+                                            // 否则播放第一个有效播客
+                                            (feedsUiState as? FeedsUiState.Success)?.feeds?.let { feeds ->
+                                                val firstPodcastFeed = feeds.find { !it.labels.podcastUrl.isNullOrBlank() }
+                                                if (firstPodcastFeed != null) {
+                                                    val feedIndex = feeds.indexOf(firstPodcastFeed)
+                                                    onPlayPodcastList?.invoke(feeds, feedIndex)
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        ) {
+                            Icon(
+                                imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
+                                contentDescription = if (isPlaying) "暂停播客" else "播放播客"
+                            )
+                        }
+                    }
+                }
+            },
             topBar = {
             Column {
                 // 现代化的顶部应用栏
