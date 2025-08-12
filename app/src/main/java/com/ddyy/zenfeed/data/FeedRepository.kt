@@ -28,6 +28,7 @@ class FeedRepository(private val context: Context) {
         private const val CACHE_KEY_FEEDS = "cached_feeds"
         private const val CACHE_KEY_TIMESTAMP = "cache_timestamp"
         private const val CACHE_KEY_READ_FEEDS = "read_feeds" // 已读文章ID集合
+        private const val CACHE_KEY_SEARCH_HISTORY = "search_history" // 搜索历史记录
         private const val CACHE_EXPIRY_HOURS = 1 // 缓存过期时间（小时）
     }
 
@@ -35,7 +36,7 @@ class FeedRepository(private val context: Context) {
      * 获取Feed列表
      * @return Feed响应结果
      */
-    suspend fun getFeeds(useCache: Boolean = true, hours: Int = 24): Result<FeedResponse> {
+    suspend fun getFeeds(useCache: Boolean = true, hours: Int = 24, query: String = ""): Result<FeedResponse> {
         return try {
             // 如果允许使用缓存且缓存有效，则返回缓存数据
             if (useCache && isCacheValid()) {
@@ -62,7 +63,7 @@ class FeedRepository(private val context: Context) {
                 start = dateFormat.format(start),
                 end = dateFormat.format(now),
                 limit = 500,
-                query = "",
+                query = query,
                 summarize = false
             )
             
@@ -169,6 +170,7 @@ class FeedRepository(private val context: Context) {
             remove(CACHE_KEY_FEEDS)
                 .remove(CACHE_KEY_TIMESTAMP)
                 .remove(CACHE_KEY_READ_FEEDS)
+                .remove(CACHE_KEY_SEARCH_HISTORY)
         }
         Log.d("FeedRepository", "Feed 缓存已清除")
     }
@@ -231,5 +233,38 @@ class FeedRepository(private val context: Context) {
      */
     fun isFeedRead(feedId: String): Boolean {
         return getReadFeedIds().contains(feedId)
+    }
+    
+    /**
+     * 保存搜索历史
+     */
+    fun saveSearchHistory(searchHistory: List<String>) {
+        try {
+            val searchHistoryJson = gson.toJson(searchHistory)
+            sharedPreferences.edit {
+                putString(CACHE_KEY_SEARCH_HISTORY, searchHistoryJson)
+            }
+            Log.d("FeedRepository", "搜索历史已保存，共 ${searchHistory.size} 条")
+        } catch (e: Exception) {
+            Log.e("FeedRepository", "保存搜索历史失败", e)
+        }
+    }
+    
+    /**
+     * 获取搜索历史
+     */
+    fun getSearchHistory(): List<String> {
+        return try {
+            val searchHistoryJson = sharedPreferences.getString(CACHE_KEY_SEARCH_HISTORY, null)
+            if (searchHistoryJson != null) {
+                val type = object : TypeToken<List<String>>() {}.type
+                gson.fromJson(searchHistoryJson, type) ?: emptyList()
+            } else {
+                emptyList()
+            }
+        } catch (e: Exception) {
+            Log.e("FeedRepository", "读取搜索历史失败", e)
+            emptyList()
+        }
     }
 }

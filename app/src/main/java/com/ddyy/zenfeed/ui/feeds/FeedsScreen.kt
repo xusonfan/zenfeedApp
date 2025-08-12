@@ -32,6 +32,8 @@ import androidx.compose.foundation.pager.PagerState
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Article
 import androidx.compose.material.icons.automirrored.filled.LastPage
@@ -40,6 +42,7 @@ import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.AutoMode
 import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.Info
@@ -48,6 +51,7 @@ import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.ButtonDefaults
@@ -73,6 +77,8 @@ import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRowDefaults
 import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextField
+import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
@@ -91,9 +97,14 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -546,6 +557,7 @@ fun FeedsScreen(
     val feedsUiState = feedsViewModel.feedsUiState
     val selectedCategory = feedsViewModel.selectedCategory
     val selectedTimeRangeHours = feedsViewModel.selectedTimeRangeHours
+    val searchQuery = feedsViewModel.searchQuery
     val isRefreshing = feedsViewModel.isRefreshing
     val isBackgroundRefreshing = feedsViewModel.isBackgroundRefreshing
     val shouldScrollToTop = feedsViewModel.shouldScrollToTop
@@ -592,6 +604,11 @@ fun FeedsScreen(
         isProxyEnabled = isProxyEnabled,
         onProxyToggle = onProxyToggle,
         onTimeRangeSelected = { hours -> feedsViewModel.selectTimeRange(hours) },
+        searchQuery = searchQuery,
+        onSearchQueryChanged = { query -> feedsViewModel.searchFeeds(query) },
+        searchHistory = feedsViewModel.searchHistory,
+        onSearchHistoryClick = { historyQuery -> feedsViewModel.searchFeeds(historyQuery) },
+        onClearSearchHistory = { feedsViewModel.clearSearchHistory() },
         modifier = modifier
     )
 }
@@ -625,12 +642,24 @@ fun FeedsScreenContent(
     onThemeToggle: () -> Unit = {},
     isProxyEnabled: Boolean = false,
     onProxyToggle: () -> Unit = {},
-    onTimeRangeSelected: (Int) -> Unit
+    onTimeRangeSelected: (Int) -> Unit,
+    searchQuery: String,
+    onSearchQueryChanged: (String) -> Unit,
+    searchHistory: List<String> = emptyList(),
+    onSearchHistoryClick: (String) -> Unit = {},
+    onClearSearchHistory: () -> Unit = {}
 ) {
     val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
     val coroutineScope = rememberCoroutineScope()
     val context = LocalContext.current
+    var isSearchActive by remember { mutableStateOf(false) }
+    var searchText by remember { mutableStateOf(searchQuery) }
+    val focusRequester = remember { FocusRequester() }
+    val keyboardController = LocalSoftwareKeyboardController.current
     
+    // 搜索历史记录显示状态
+    var showSearchHistory by remember { mutableStateOf(false) }
+
     // 抽屉状态管理
     val drawerState = rememberDrawerState(DrawerValue.Closed)
     
@@ -667,55 +696,62 @@ fun FeedsScreenContent(
     
     // 返回键处理逻辑
     BackHandler {
-        val currentTime = System.currentTimeMillis()
-        val currentCategory = pagerCategories.getOrNull(pagerState.currentPage) ?: ""
-        val currentListState = listStates[currentCategory]
-        
-        // 检查当前是否在列表顶部
-        val isAtTop = currentListState?.firstVisibleItemIndex == 0 &&
-                     currentListState.firstVisibleItemScrollOffset == 0
-        
-        if (!isAtTop) {
-            // 如果不在顶部，滚动到顶部 - 智能选择滚动方式
-            coroutineScope.launch {
-                try {
-                    val currentIndex = currentListState?.firstVisibleItemIndex ?: 0
-                    val animationThreshold = 20 // 跳转距离阈值
-                    
-                    if (currentIndex <= animationThreshold) {
-                        // 距离较短，使用动画滚动提供流畅体验
-                        Log.d("FeedsScreen", "返回键滚动距离: $currentIndex，使用动画滚动")
-                        currentListState?.animateScrollToItem(0)
-                    } else {
-                        // 距离较长，直接跳转提升性能
-                        Log.d("FeedsScreen", "返回键滚动距离: $currentIndex，直接跳转")
-                        currentListState?.scrollToItem(0)
-                    }
-                    hasScrolledToTop = true
-                } catch (e: kotlinx.coroutines.CancellationException) {
-                    // 检查是否是LeftCompositionCancellationException
-                    if (e.message?.contains("left the composition") == true) {
-                        Log.w("FeedsScreen", "组合已离开，返回键滚动操作被取消", e)
-                        // 不重新抛出LeftCompositionCancellationException
-                    } else {
-                        Log.w("FeedsScreen", "协程被取消，返回键滚动操作终止", e)
-                        throw e
-                    }
-                } catch (e: Exception) {
-                    Log.e("FeedsScreen", "返回键滚动失败", e)
-                }
-            }
-            Toast.makeText(context, "再次按返回键退出应用", Toast.LENGTH_SHORT).show()
+        if (isSearchActive) {
+            isSearchActive = false
+            searchText = ""
+            onSearchQueryChanged("")
+            showSearchHistory = false
         } else {
-            // 如果已经在顶部，检查是否在时间阈值内
-            if (currentTime - lastBackPressTime <= backPressThreshold) {
-                // 在阈值内，真正退出应用
-                (context as? androidx.activity.ComponentActivity)?.finish()
-            } else {
-                // 超过阈值，显示提示并更新时间
-                lastBackPressTime = currentTime
-                hasScrolledToTop = false
+            val currentTime = System.currentTimeMillis()
+            val currentCategory = pagerCategories.getOrNull(pagerState.currentPage) ?: ""
+            val currentListState = listStates[currentCategory]
+
+            // 检查当前是否在列表顶部
+            val isAtTop = currentListState?.firstVisibleItemIndex == 0 &&
+                    currentListState.firstVisibleItemScrollOffset == 0
+
+            if (!isAtTop) {
+                // 如果不在顶部，滚动到顶部 - 智能选择滚动方式
+                coroutineScope.launch {
+                    try {
+                        val currentIndex = currentListState?.firstVisibleItemIndex ?: 0
+                        val animationThreshold = 20 // 跳转距离阈值
+
+                        if (currentIndex <= animationThreshold) {
+                            // 距离较短，使用动画滚动提供流畅体验
+                            Log.d("FeedsScreen", "返回键滚动距离: $currentIndex，使用动画滚动")
+                            currentListState?.animateScrollToItem(0)
+                        } else {
+                            // 距离较长，直接跳转提升性能
+                            Log.d("FeedsScreen", "返回键滚动距离: $currentIndex，直接跳转")
+                            currentListState?.scrollToItem(0)
+                        }
+                        hasScrolledToTop = true
+                    } catch (e: kotlinx.coroutines.CancellationException) {
+                        // 检查是否是LeftCompositionCancellationException
+                        if (e.message?.contains("left the composition") == true) {
+                            Log.w("FeedsScreen", "组合已离开，返回键滚动操作被取消", e)
+                            // 不重新抛出LeftCompositionCancellationException
+                        } else {
+                            Log.w("FeedsScreen", "协程被取消，返回键滚动操作终止", e)
+                            throw e
+                        }
+                    } catch (e: Exception) {
+                        Log.e("FeedsScreen", "返回键滚动失败", e)
+                    }
+                }
                 Toast.makeText(context, "再次按返回键退出应用", Toast.LENGTH_SHORT).show()
+            } else {
+                // 如果已经在顶部，检查是否在时间阈值内
+                if (currentTime - lastBackPressTime <= backPressThreshold) {
+                    // 在阈值内，真正退出应用
+                    (context as? androidx.activity.ComponentActivity)?.finish()
+                } else {
+                    // 超过阈值，显示提示并更新时间
+                    lastBackPressTime = currentTime
+                    hasScrolledToTop = false
+                    Toast.makeText(context, "再次按返回键退出应用", Toast.LENGTH_SHORT).show()
+                }
             }
         }
     }
@@ -809,70 +845,201 @@ fun FeedsScreenContent(
                 // 现代化的顶部应用栏
                 CenterAlignedTopAppBar(
                     title = {
-                        Text(
-                            text = "Zenfeed",
-                            style = MaterialTheme.typography.headlineMedium.copy(
-                                fontWeight = FontWeight.ExtraBold,
-                                letterSpacing = 1.sp
-                            ),
-                            color = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.clickable(
-                                indication = null,
-                                interactionSource = remember { MutableInteractionSource() }
-                            ) {
-                                val currentTime = System.currentTimeMillis()
-                                if (currentTime - lastClickTime <= doubleTapThreshold) {
-                                    // 双击事件：滚动到顶部 - 智能选择滚动方式
-                                    coroutineScope.launch {
-                                        try {
-                                            // 根据 pagerState 获取当前可见的列表状态并滚动
-                                            val categoryToScroll = pagerCategories.getOrNull(pagerState.currentPage)
-                                            val stateToScroll = categoryToScroll?.let { listStates[it] }
-                                            val currentIndex = stateToScroll?.firstVisibleItemIndex ?: 0
-                                            val animationThreshold = 20 // 跳转距离阈值
-                                            
-                                            if (currentIndex <= animationThreshold) {
-                                                // 距离较短，使用动画滚动提供流畅体验
-                                                Log.d("FeedsScreen", "双击标题滚动距离: $currentIndex，使用动画滚动")
-                                                stateToScroll?.animateScrollToItem(0)
-                                            } else {
-                                                // 距离较长，直接跳转提升性能
-                                                Log.d("FeedsScreen", "双击标题滚动距离: $currentIndex，直接跳转")
-                                                stateToScroll?.scrollToItem(0)
-                                            }
-                                        } catch (e: kotlinx.coroutines.CancellationException) {
-                                            // 检查是否是LeftCompositionCancellationException
-                                            if (e.message?.contains("left the composition") == true) {
-                                                Log.w("FeedsScreen", "组合已离开，双击标题滚动操作被取消", e)
-                                                // 不重新抛出LeftCompositionCancellationException
-                                            } else {
-                                                Log.w("FeedsScreen", "协程被取消，双击标题滚动操作终止", e)
-                                                throw e
-                                            }
-                                        } catch (e: Exception) {
-                                            Log.e("FeedsScreen", "双击标题滚动失败", e)
+                        if (isSearchActive) {
+                            Box {
+                                TextField(
+                                    value = searchText,
+                                    onValueChange = {
+                                        searchText = it
+                                        showSearchHistory = it.isNotEmpty() && searchHistory.isNotEmpty()
+                                    },
+                                    placeholder = { Text("语义搜索，长句效果更佳") },
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .focusRequester(focusRequester),
+                                    singleLine = true,
+                                    colors = TextFieldDefaults.colors(
+                                        focusedContainerColor = Color.Transparent,
+                                        unfocusedContainerColor = Color.Transparent,
+                                        disabledContainerColor = Color.Transparent,
+                                        focusedIndicatorColor = Color.Transparent,
+                                        unfocusedIndicatorColor = Color.Transparent,
+                                    ),
+                                    textStyle = MaterialTheme.typography.bodyLarge,
+                                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                                    keyboardActions = KeyboardActions(onSearch = {
+                                        onSearchQueryChanged(searchText)
+                                        showSearchHistory = false
+                                        keyboardController?.hide()
+                                    })
+                                )
+                                
+                                // 搜索历史记录下拉菜单
+                                DropdownMenu(
+                                    expanded = showSearchHistory && searchHistory.isNotEmpty(),
+                                    onDismissRequest = { showSearchHistory = false },
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    // 标题行
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(horizontal = 16.dp, vertical = 8.dp),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text(
+                                            text = "搜索历史",
+                                            style = MaterialTheme.typography.labelLarge.copy(
+                                                fontWeight = FontWeight.Medium
+                                            ),
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                        
+                                        // 清除历史按钮
+                                        IconButton(
+                                            onClick = {
+                                                onClearSearchHistory()
+                                                showSearchHistory = false
+                                            },
+                                            modifier = Modifier.size(24.dp)
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.Close,
+                                                contentDescription = "清除历史记录",
+                                                modifier = Modifier.size(16.dp),
+                                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
                                         }
                                     }
-                                    lastClickTime = 0L // 重置时间避免三击
-                                } else {
-                                    lastClickTime = currentTime
+                                    
+                                    // 历史记录列表
+                                    searchHistory.forEach { historyItem ->
+                                        DropdownMenuItem(
+                                            text = {
+                                                Row(
+                                                    verticalAlignment = Alignment.CenterVertically
+                                                ) {
+                                                    Icon(
+                                                        imageVector = Icons.Default.AccessTime,
+                                                        contentDescription = "历史记录",
+                                                        modifier = Modifier.size(16.dp),
+                                                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                                                    )
+                                                    
+                                                    Spacer(modifier = Modifier.width(12.dp))
+                                                    
+                                                    Text(
+                                                        text = historyItem,
+                                                        style = MaterialTheme.typography.bodyMedium,
+                                                        color = MaterialTheme.colorScheme.onSurface,
+                                                        maxLines = 1,
+                                                        overflow = TextOverflow.Ellipsis
+                                                    )
+                                                }
+                                            },
+                                            onClick = {
+                                                searchText = historyItem
+                                                onSearchHistoryClick(historyItem)
+                                                showSearchHistory = false
+                                                keyboardController?.hide()
+                                            }
+                                        )
+                                    }
                                 }
                             }
-                        )
+                            LaunchedEffect(Unit) {
+                                focusRequester.requestFocus()
+                                if (searchText.isEmpty() && searchHistory.isNotEmpty()) {
+                                    showSearchHistory = true
+                                }
+                            }
+                        } else {
+                            Text(
+                                text = "Zenfeed",
+                                style = MaterialTheme.typography.headlineMedium.copy(
+                                    fontWeight = FontWeight.ExtraBold,
+                                    letterSpacing = 1.sp
+                                ),
+                                color = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.clickable(
+                                    indication = null,
+                                    interactionSource = remember { MutableInteractionSource() }
+                                ) {
+                                    val currentTime = System.currentTimeMillis()
+                                    if (currentTime - lastClickTime <= doubleTapThreshold) {
+                                        // 双击事件：滚动到顶部 - 智能选择滚动方式
+                                        coroutineScope.launch {
+                                            try {
+                                                // 根据 pagerState 获取当前可见的列表状态并滚动
+                                                val categoryToScroll = pagerCategories.getOrNull(pagerState.currentPage)
+                                                val stateToScroll = categoryToScroll?.let { listStates[it] }
+                                                val currentIndex = stateToScroll?.firstVisibleItemIndex ?: 0
+                                                val animationThreshold = 20 // 跳转距离阈值
+
+                                                if (currentIndex <= animationThreshold) {
+                                                    // 距离较短，使用动画滚动提供流畅体验
+                                                    Log.d("FeedsScreen", "双击标题滚动距离: $currentIndex，使用动画滚动")
+                                                    stateToScroll?.animateScrollToItem(0)
+                                                } else {
+                                                    // 距离较长，直接跳转提升性能
+                                                    Log.d("FeedsScreen", "双击标题滚动距离: $currentIndex，直接跳转")
+                                                    stateToScroll?.scrollToItem(0)
+                                                }
+                                            } catch (e: kotlinx.coroutines.CancellationException) {
+                                                // 检查是否是LeftCompositionCancellationException
+                                                if (e.message?.contains("left the composition") == true) {
+                                                    Log.w("FeedsScreen", "组合已离开，双击标题滚动操作被取消", e)
+                                                    // 不重新抛出LeftCompositionCancellationException
+                                                } else {
+                                                    Log.w("FeedsScreen", "协程被取消，双击标题滚动操作终止", e)
+                                                    throw e
+                                                }
+                                            } catch (e: Exception) {
+                                                Log.e("FeedsScreen", "双击标题滚动失败", e)
+                                            }
+                                        }
+                                        lastClickTime = 0L // 重置时间避免三击
+                                    } else {
+                                        lastClickTime = currentTime
+                                    }
+                                }
+                            )
+                        }
                     },
                     navigationIcon = {
-                        IconButton(
-                            onClick = {
-                                coroutineScope.launch {
-                                    drawerState.open()
-                                }
-                            }
-                        ) {
+                        IconButton(onClick = { coroutineScope.launch { drawerState.open() } }) {
                             Icon(
                                 imageVector = Icons.Default.Menu,
                                 contentDescription = "菜单",
                                 tint = MaterialTheme.colorScheme.onSurface
                             )
+                        }
+                    },
+                    actions = {
+                        if (isSearchActive) {
+                            IconButton(onClick = {
+                                if (searchText.isNotEmpty()) {
+                                    searchText = ""
+                                    onSearchQueryChanged("")
+                                    showSearchHistory = false
+                                    // 清空后重新聚焦到搜索框并显示键盘
+                                    coroutineScope.launch {
+                                        focusRequester.requestFocus()
+                                        keyboardController?.show()
+                                    }
+                                } else {
+                                    isSearchActive = false
+                                    showSearchHistory = false
+                                    keyboardController?.hide()
+                                }
+                            }) {
+                                Icon(Icons.Default.Close, contentDescription = "关闭搜索")
+                            }
+                        } else {
+                            IconButton(onClick = { isSearchActive = true }) {
+                                Icon(Icons.Default.Search, contentDescription = "搜索")
+                            }
                         }
                     },
                     scrollBehavior = scrollBehavior,
@@ -1546,6 +1713,7 @@ fun ModernErrorScreen(
     }
 }
 
+
 // 保持原有的预览组件，但使用新的设计
 @Preview(showBackground = true)
 @Composable
@@ -1652,7 +1820,12 @@ fun FeedsScreenSuccessPreview() {
             listStates = remember { mutableMapOf() },
             scrollPositions = emptyMap(),
             sharedViewModel = null,
-            onTimeRangeSelected = {}
+            onTimeRangeSelected = {},
+            searchQuery = "",
+            onSearchQueryChanged = {},
+            searchHistory = listOf("示例搜索1", "示例搜索2", "示例搜索3"),
+            onSearchHistoryClick = {},
+            onClearSearchHistory = {}
         )
     }
 }

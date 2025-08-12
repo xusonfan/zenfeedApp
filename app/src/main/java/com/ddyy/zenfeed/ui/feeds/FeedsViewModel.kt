@@ -67,8 +67,17 @@ class FeedsViewModel(application: Application) : AndroidViewModel(application) {
     var selectedTimeRangeHours: Int by mutableStateOf(24) // 默认24小时
         private set
 
+    // 当前的搜索查询
+    var searchQuery: String by mutableStateOf("")
+        private set
+
+    // 搜索历史记录
+    var searchHistory: List<String> by mutableStateOf(emptyList())
+        private set
+
     init {
         loadReadFeedIds()
+        loadSearchHistory() // 加载搜索历史
         loadCachedFeeds()
         getFeeds()
     }
@@ -111,7 +120,7 @@ class FeedsViewModel(application: Application) : AndroidViewModel(application) {
                 isBackgroundRefreshing = true
             }
 
-            val result = feedRepository.getFeeds(useCache = !forceRefresh, hours = selectedTimeRangeHours)
+            val result = feedRepository.getFeeds(useCache = !forceRefresh, hours = selectedTimeRangeHours, query = searchQuery)
             if (result.isSuccess) {
                 val newFeeds = result.getOrNull()?.feeds ?: emptyList()
                 if (newFeeds != allFeeds || forceRefresh) { // 数据不同或强制刷新时更新
@@ -137,7 +146,7 @@ class FeedsViewModel(application: Application) : AndroidViewModel(application) {
     fun refreshFeeds() {
         viewModelScope.launch {
             isRefreshing = true
-            val result = feedRepository.getFeeds(useCache = false, hours = selectedTimeRangeHours) // 强制从网络获取
+            val result = feedRepository.getFeeds(useCache = false, hours = selectedTimeRangeHours, query = searchQuery) // 强制从网络获取
             if (result.isSuccess) {
                 val newFeeds = result.getOrNull()?.feeds ?: emptyList()
 
@@ -187,6 +196,48 @@ class FeedsViewModel(application: Application) : AndroidViewModel(application) {
             getFeeds(forceRefresh = true)
             Log.d("FeedsViewModel", "时间范围已更改为: $hours 小时")
         }
+    }
+
+    /**
+     * 搜索Feeds
+     */
+    fun searchFeeds(query: String) {
+        if (searchQuery != query || query.isNotEmpty()) { // 允许重复搜索相同内容
+            searchQuery = query
+            addSearchHistory(query) // 添加到历史记录
+            getFeeds(forceRefresh = true)
+            Log.d("FeedsViewModel", "开始搜索: $query")
+        }
+    }
+
+    /**
+     * 添加到搜索历史
+     */
+    private fun addSearchHistory(query: String) {
+        if (query.isBlank()) return
+        val newHistory = searchHistory.toMutableList()
+        newHistory.remove(query) // 移除旧的重复项
+        newHistory.add(0, query) // 添加到最前面
+        searchHistory = newHistory.take(10) // 最多保存10条
+        feedRepository.saveSearchHistory(searchHistory)
+        Log.d("FeedsViewModel", "添加搜索历史: $query, 当前历史: $searchHistory")
+    }
+
+    /**
+     * 清除搜索历史
+     */
+    fun clearSearchHistory() {
+        searchHistory = emptyList()
+        feedRepository.saveSearchHistory(emptyList())
+        Log.d("FeedsViewModel", "搜索历史已清除")
+    }
+
+    /**
+     * 加载搜索历史
+     */
+    private fun loadSearchHistory() {
+        searchHistory = feedRepository.getSearchHistory()
+        Log.d("FeedsViewModel", "已加载搜索历史: $searchHistory")
     }
     
     /**
