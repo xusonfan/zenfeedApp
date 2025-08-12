@@ -35,7 +35,7 @@ class FeedRepository(private val context: Context) {
      * 获取Feed列表
      * @return Feed响应结果
      */
-    suspend fun getFeeds(useCache: Boolean = true): Result<FeedResponse> {
+    suspend fun getFeeds(useCache: Boolean = true, hours: Int = 24): Result<FeedResponse> {
         return try {
             // 如果允许使用缓存且缓存有效，则返回缓存数据
             if (useCache && isCacheValid()) {
@@ -50,10 +50,10 @@ class FeedRepository(private val context: Context) {
                     )
                 }
             }
-            
+
             // 从网络获取新数据
             val now = Date()
-            val start = Date(now.time - 24 * 60 * 60 * 1000) // 24 hours ago
+            val start = Date(now.time - hours * 60 * 60 * 1000L) // 根据传入的小时数计算开始时间
             val dateFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US).apply {
                 timeZone = TimeZone.getTimeZone("UTC")
             }

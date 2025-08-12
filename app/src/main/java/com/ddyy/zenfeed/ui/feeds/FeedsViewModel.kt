@@ -63,6 +63,10 @@ class FeedsViewModel(application: Application) : AndroidViewModel(application) {
     var selectedCategory: String by mutableStateOf("")
         private set
 
+    // 当前选中的时间范围（小时）
+    var selectedTimeRangeHours: Int by mutableStateOf(24) // 默认24小时
+        private set
+
     init {
         loadReadFeedIds()
         loadCachedFeeds()
@@ -97,20 +101,20 @@ class FeedsViewModel(application: Application) : AndroidViewModel(application) {
     /**
      * 获取Feed列表（从网络获取新数据）
      */
-    fun getFeeds() {
+    fun getFeeds(forceRefresh: Boolean = false) {
         viewModelScope.launch {
-            // 如果当前没有数据，显示加载状态
-            if (allFeeds.isEmpty()) {
+            // 如果当前没有数据或强制刷新，显示加载状态
+            if (allFeeds.isEmpty() || forceRefresh) {
                 feedsUiState = FeedsUiState.Loading
             } else {
                 // 如果有缓存数据，显示背景刷新状态
                 isBackgroundRefreshing = true
             }
-            
-            val result = feedRepository.getFeeds(useCache = false) // 强制从网络获取
+
+            val result = feedRepository.getFeeds(useCache = !forceRefresh, hours = selectedTimeRangeHours)
             if (result.isSuccess) {
                 val newFeeds = result.getOrNull()?.feeds ?: emptyList()
-                if (newFeeds != allFeeds) { // 只有数据不同时才更新
+                if (newFeeds != allFeeds || forceRefresh) { // 数据不同或强制刷新时更新
                     allFeeds = newFeeds
                     updateFilteredFeeds()
                     Log.d("FeedsViewModel", "已更新网络数据，共 ${newFeeds.size} 条")
@@ -121,7 +125,7 @@ class FeedsViewModel(application: Application) : AndroidViewModel(application) {
                     feedsUiState = FeedsUiState.Error
                 }
             }
-            
+
             // 关闭背景刷新状态
             isBackgroundRefreshing = false
         }
@@ -133,17 +137,17 @@ class FeedsViewModel(application: Application) : AndroidViewModel(application) {
     fun refreshFeeds() {
         viewModelScope.launch {
             isRefreshing = true
-            val result = feedRepository.getFeeds(useCache = false) // 强制从网络获取
+            val result = feedRepository.getFeeds(useCache = false, hours = selectedTimeRangeHours) // 强制从网络获取
             if (result.isSuccess) {
                 val newFeeds = result.getOrNull()?.feeds ?: emptyList()
-                
+
                 // 检测新增内容数量
                 val newContentCount = detectNewContent(allFeeds, newFeeds)
-                
+
                 // 更新Feed列表
                 allFeeds = newFeeds
                 updateFilteredFeeds()
-                
+
                 // 如果有新内容，设置滚动到顶部状态和新增数量
                 if (newContentCount > 0) {
                     this@FeedsViewModel.newContentCount = newContentCount
@@ -171,6 +175,18 @@ class FeedsViewModel(application: Application) : AndroidViewModel(application) {
     fun selectCategory(category: String) {
         selectedCategory = category
         // 这里不再调用 updateFilteredFeeds()，因为UI层会处理筛选
+    }
+
+    /**
+     * 选择时间范围
+     */
+    fun selectTimeRange(hours: Int) {
+        if (selectedTimeRangeHours != hours) {
+            selectedTimeRangeHours = hours
+            // 强制刷新数据
+            getFeeds(forceRefresh = true)
+            Log.d("FeedsViewModel", "时间范围已更改为: $hours 小时")
+        }
     }
     
     /**

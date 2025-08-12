@@ -35,8 +35,11 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Article
 import androidx.compose.material.icons.automirrored.filled.LastPage
+import androidx.compose.material.icons.filled.AccessTime
+import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.AutoMode
 import androidx.compose.material.icons.filled.BugReport
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.Info
@@ -53,6 +56,8 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DrawerValue
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FloatingActionButton
@@ -382,14 +387,19 @@ fun CategoryTabs(
     categories: List<String>,
     onTabSelected: (Int) -> Unit,
     modifier: Modifier = Modifier,
-    onTabDoubleClick: (Int) -> Unit = {}
+    onTabDoubleClick: (Int) -> Unit = {},
+    onTimeRangeSelected: (Int) -> Unit,
+    selectedTimeRangeHours: Int
 ) {
     // 使用remember监听categories变化，确保tab栏与数据同步
     val allCategories = remember(categories) { listOf("全部") + categories }
-    
+
     // 双击检测状态 - 为每个tab维护独立的双击状态
     var lastClickTimes by remember { mutableStateOf(emptyMap<Int, Long>()) }
     val doubleTapThreshold = 300L // 双击时间间隔阈值（毫秒）
+
+    // 时间范围选择菜单状态
+    var timeMenuExpanded by remember { mutableStateOf(false) }
 
     ScrollableTabRow(
         selectedTabIndex = pagerState.currentPage,
@@ -410,7 +420,7 @@ fun CategoryTabs(
                 onClick = {
                     val currentTime = System.currentTimeMillis()
                     val lastTime = lastClickTimes[index] ?: 0L
-                    
+
                     if (currentTime - lastTime <= doubleTapThreshold) {
                         // 双击事件：滚动到列表顶部
                         onTabDoubleClick(index)
@@ -422,11 +432,53 @@ fun CategoryTabs(
                     }
                 },
                 text = {
-                    Text(
-                        text = category,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = category,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        if (category == "全部") {
+                            Box {
+                                Icon(
+                                    imageVector = Icons.Default.ArrowDropDown,
+                                    contentDescription = "选择时间范围",
+                                    modifier = Modifier
+                                        .size(20.dp)
+                                        .clickable { timeMenuExpanded = true }
+                                )
+                                DropdownMenu(
+                                    expanded = timeMenuExpanded,
+                                    onDismissRequest = { timeMenuExpanded = false }
+                                ) {
+                                    val timeRanges = listOf(
+                                        "12小时内" to 12,
+                                        "一天内" to 24,
+                                        "三天内" to 72,
+                                        "一周内" to 168,
+                                        "一个月内" to 720
+                                    )
+                                    timeRanges.forEach { (text, hours) ->
+                                        val isSelected = selectedTimeRangeHours == hours
+                                        DropdownMenuItem(
+                                            text = { Text(text) },
+                                            onClick = {
+                                                onTimeRangeSelected(hours)
+                                                timeMenuExpanded = false
+                                            },
+                                            leadingIcon = {
+                                                Icon(
+                                                    imageVector = if (isSelected) Icons.Default.Check else Icons.Default.AccessTime,
+                                                    contentDescription = null,
+                                                    tint = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                                                )
+                                            }
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             )
         }
@@ -493,6 +545,7 @@ fun FeedsScreen(
 ) {
     val feedsUiState = feedsViewModel.feedsUiState
     val selectedCategory = feedsViewModel.selectedCategory
+    val selectedTimeRangeHours = feedsViewModel.selectedTimeRangeHours
     val isRefreshing = feedsViewModel.isRefreshing
     val isBackgroundRefreshing = feedsViewModel.isBackgroundRefreshing
     val shouldScrollToTop = feedsViewModel.shouldScrollToTop
@@ -515,6 +568,7 @@ fun FeedsScreen(
     FeedsScreenContent(
         feedsUiState = feedsUiState,
         selectedCategory = selectedCategory,
+        selectedTimeRangeHours = selectedTimeRangeHours,
         isRefreshing = isRefreshing,
         isBackgroundRefreshing = isBackgroundRefreshing,
         shouldScrollToTop = shouldScrollToTop,
@@ -537,6 +591,7 @@ fun FeedsScreen(
         onThemeToggle = onThemeToggle,
         isProxyEnabled = isProxyEnabled,
         onProxyToggle = onProxyToggle,
+        onTimeRangeSelected = { hours -> feedsViewModel.selectTimeRange(hours) },
         modifier = modifier
     )
 }
@@ -546,6 +601,7 @@ fun FeedsScreen(
 fun FeedsScreenContent(
     feedsUiState: FeedsUiState,
     selectedCategory: String,
+    selectedTimeRangeHours: Int,
     isRefreshing: Boolean,
     isBackgroundRefreshing: Boolean,
     shouldScrollToTop: Boolean,
@@ -568,7 +624,8 @@ fun FeedsScreenContent(
     currentThemeMode: String = "system",
     onThemeToggle: () -> Unit = {},
     isProxyEnabled: Boolean = false,
-    onProxyToggle: () -> Unit = {}
+    onProxyToggle: () -> Unit = {},
+    onTimeRangeSelected: (Int) -> Unit
 ) {
     val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
     val coroutineScope = rememberCoroutineScope()
@@ -873,7 +930,7 @@ fun FeedsScreenContent(
                                         // 等待页面切换完成
                                         kotlinx.coroutines.delay(300)
                                     }
-                                    
+
                                     // 获取对应分类的列表状态并滚动到顶部
                                     val allCategories = listOf("") + feedsUiState.categories
                                     val category = if (page < allCategories.size) {
@@ -884,7 +941,7 @@ fun FeedsScreenContent(
                                     val listState = listStates[category]
                                     val currentIndex = listState?.firstVisibleItemIndex ?: 0
                                     val animationThreshold = 20 // 跳转距离阈值
-                                    
+
                                     if (currentIndex <= animationThreshold) {
                                         // 距离较短，使用动画滚动提供流畅体验
                                         Log.d("FeedsScreen", "双击Tab滚动距离: $currentIndex，使用动画滚动")
@@ -907,7 +964,9 @@ fun FeedsScreenContent(
                                     Log.e("FeedsScreen", "双击Tab滚动失败", e)
                                 }
                             }
-                        }
+                        },
+                        onTimeRangeSelected = onTimeRangeSelected,
+                        selectedTimeRangeHours = selectedTimeRangeHours
                     )
                     
                     // 观察播放状态
@@ -1574,6 +1633,7 @@ fun FeedsScreenSuccessPreview() {
                 categories = listOf("科技", "新闻", "生活")
             ),
             selectedCategory = "",
+            selectedTimeRangeHours = 24,
             isRefreshing = false,
             isBackgroundRefreshing = false,
             shouldScrollToTop = false,
@@ -1591,7 +1651,8 @@ fun FeedsScreenSuccessPreview() {
             playerViewModel = null,
             listStates = remember { mutableMapOf() },
             scrollPositions = emptyMap(),
-            sharedViewModel = null
+            sharedViewModel = null,
+            onTimeRangeSelected = {}
         )
     }
 }
