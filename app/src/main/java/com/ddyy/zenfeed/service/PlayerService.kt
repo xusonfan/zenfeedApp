@@ -4,7 +4,11 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
+import android.content.Context
 import android.content.Intent
+import android.media.AudioAttributes
+import android.media.AudioFocusRequest
+import android.media.AudioManager
 import android.media.MediaPlayer
 import android.os.Binder
 import android.os.Build
@@ -28,7 +32,7 @@ import okhttp3.Request
 import java.io.File
 import java.io.FileOutputStream
 
-class PlayerService : Service() {
+class PlayerService : Service(), AudioManager.OnAudioFocusChangeListener {
 
     var mediaSession: MediaSessionCompat? = null
     private var mediaPlayer: MediaPlayer? = null
@@ -38,6 +42,12 @@ class PlayerService : Service() {
     private var isPrepared = false
     var currentTrackUrl: String? = null
         private set
+    
+    // 音频焦点管理
+    private lateinit var audioManager: AudioManager
+    private var audioFocusRequest: AudioFocusRequest? = null
+    private var hasAudioFocus = false
+    private var playbackNeedsToResume = false // 标记是否需要在获得音频焦点后恢复播放
     
     // 预加载相关变量
     private var preloadMediaPlayer: MediaPlayer? = null
@@ -84,6 +94,9 @@ class PlayerService : Service() {
         super.onCreate()
         Log.d("PlayerService", "PlayerService onCreate")
         createNotificationChannel()
+        
+        // 初始化AudioManager
+        audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
         
         // 创建MediaSession，确保它在整个服务生命周期中保持活跃
         mediaSession = MediaSessionCompat(this, "PlayerService").apply {
@@ -202,6 +215,12 @@ class PlayerService : Service() {
         currentTrackUrl = url
         isPrepared = false
         stopProgressUpdate()
+        
+        // 请求音频焦点
+        if (!requestAudioFocus()) {
+            Log.w("PlayerService", "无法获取音频焦点，停止播放")
+            return
+        }
         
         // 检查是否已经预加载了这个文件
         if (preloadTrackUrl == url && isPreloadPrepared && preloadMediaPlayer != null) {
@@ -638,18 +657,67 @@ class PlayerService : Service() {
     }
 
     fun pause() {
-        mediaPlayer?.pause()
-        stopProgressUpdate()
-        Log.d("PlayerService", "暂停播放")
-        updatePlaybackState(PlaybackStateCompat.STATE_PAUSED)
+        try {
+            mediaPlayer?.pause()
+            stopProgressUpdate()
+            Log.d("PlayerService", "暂停播放")
+            updatePlaybackState(PlaybackStateCompat.STATE_PAUSED)
+        } catch (e: Exception) {
+            Log.e("PlayerService", "暂停播放时出错", e)
+        }
     }
 
     fun resume() {
-        if (isPrepared && mediaPlayer?.isPlaying == false) {
-            mediaPlayer?.start()
-            startProgressUpdate()
-            Log.d("PlayerService", "继续播放")
-            updatePlaybackState(PlaybackStateCompat.STATE_PLAYING)
+        try {
+            Log.d("PlayerService", "尝试恢复播放，isPrepared=$isPrepared, mediaPlayer状态=${getMediaPlayerState()}")
+            
+            if (!isPrepared || mediaPlayer == null) {
+                Log.w("PlayerService", "播放器未准备好，无法恢复播放")
+                return
+            }
+            
+            val player = mediaPlayer!!
+            
+            // 检查MediaPlayer实际状态
+            if (player.isPlaying) {
+                Log.d("PlayerService", "播放器已经在播放")
+                return
+            }
+            
+            // 请求音频焦点
+            if (requestAudioFocus()) {
+                try {
+                    player.start()
+                    startProgressUpdate()
+                    Log.d("PlayerService", "继续播放")
+                    updatePlaybackState(PlaybackStateCompat.STATE_PLAYING)
+                    playbackNeedsToResume = false // 重置恢复标志
+                } catch (e: IllegalStateException) {
+                    Log.e("PlayerService", "MediaPlayer状态异常，尝试重新播放当前曲目", e)
+                    isPrepared = false
+                    playCurrentTrack() // 重新播放当前曲目
+                } catch (e: Exception) {
+                    Log.e("PlayerService", "恢复播放时出错", e)
+                    updatePlaybackState(PlaybackStateCompat.STATE_ERROR)
+                }
+            } else {
+                Log.w("PlayerService", "无法获取音频焦点，无法恢复播放")
+                playbackNeedsToResume = true
+            }
+        } catch (e: Exception) {
+            Log.e("PlayerService", "resume()方法执行异常", e)
+        }
+    }
+    
+    /**
+     * 获取MediaPlayer状态的描述，用于调试
+     */
+    private fun getMediaPlayerState(): String {
+        return when {
+            mediaPlayer == null -> "null"
+            !isPrepared -> "未准备"
+            mediaPlayer?.isPlaying == true -> "播放中"
+            else -> "已暂停"
         }
     }
 
@@ -817,6 +885,9 @@ class PlayerService : Service() {
         Log.d("PlayerService", "PlayerService onDestroy")
         stopProgressUpdate()
         
+        // 释放音频焦点
+        abandonAudioFocus()
+        
         // 释放媒体播放器资源
         mediaPlayer?.release()
         mediaPlayer = null
@@ -883,6 +954,162 @@ class PlayerService : Service() {
             .setState(state, position, playbackSpeed)
         mediaSession?.setPlaybackState(playbackStateBuilder.build())
         updateNotification()
+    }
+
+    /**
+     * 请求音频焦点
+     */
+    private fun requestAudioFocus(): Boolean {
+        return try {
+            val result = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                // Android 8.0及以上版本使用AudioFocusRequest
+                val audioAttributes = AudioAttributes.Builder()
+                    .setUsage(AudioAttributes.USAGE_MEDIA)
+                    .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+                    .build()
+                
+                audioFocusRequest = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN)
+                    .setAudioAttributes(audioAttributes)
+                    .setAcceptsDelayedFocusGain(true)
+                    .setOnAudioFocusChangeListener(this)
+                    .build()
+                
+                audioManager.requestAudioFocus(audioFocusRequest!!)
+            } else {
+                // Android 8.0以下版本使用旧API
+                @Suppress("DEPRECATION")
+                audioManager.requestAudioFocus(
+                    this,
+                    AudioManager.STREAM_MUSIC,
+                    AudioManager.AUDIOFOCUS_GAIN
+                )
+            }
+            
+            hasAudioFocus = result == AudioManager.AUDIOFOCUS_REQUEST_GRANTED
+            if (hasAudioFocus) {
+                Log.d("PlayerService", "音频焦点获取成功")
+            } else {
+                Log.w("PlayerService", "音频焦点获取失败: $result")
+            }
+            hasAudioFocus
+        } catch (e: Exception) {
+            Log.e("PlayerService", "请求音频焦点时出错", e)
+            false
+        }
+    }
+
+    /**
+     * 释放音频焦点
+     */
+    private fun abandonAudioFocus() {
+        try {
+            if (hasAudioFocus) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && audioFocusRequest != null) {
+                    audioManager.abandonAudioFocusRequest(audioFocusRequest!!)
+                } else {
+                    @Suppress("DEPRECATION")
+                    audioManager.abandonAudioFocus(this)
+                }
+                hasAudioFocus = false
+                playbackNeedsToResume = false
+                Log.d("PlayerService", "音频焦点已释放")
+            }
+        } catch (e: Exception) {
+            Log.e("PlayerService", "释放音频焦点时出错", e)
+        }
+    }
+
+    /**
+     * 音频焦点变化监听器
+     */
+    override fun onAudioFocusChange(focusChange: Int) {
+        Log.d("PlayerService", "音频焦点变化: $focusChange")
+        
+        when (focusChange) {
+            AudioManager.AUDIOFOCUS_GAIN -> {
+                // 获得音频焦点
+                hasAudioFocus = true
+                Log.d("PlayerService", "获得音频焦点，playbackNeedsToResume=$playbackNeedsToResume, isPrepared=$isPrepared")
+                
+                if (playbackNeedsToResume && isPrepared && mediaPlayer != null) {
+                    try {
+                        // 检查MediaPlayer状态是否有效
+                        if (!mediaPlayer!!.isPlaying) {
+                            mediaPlayer!!.start()
+                            startProgressUpdate()
+                            updatePlaybackState(PlaybackStateCompat.STATE_PLAYING)
+                            playbackNeedsToResume = false
+                            Log.d("PlayerService", "音频焦点恢复，继续播放")
+                        } else {
+                            Log.d("PlayerService", "播放器已经在播放，无需恢复")
+                            playbackNeedsToResume = false
+                        }
+                    } catch (e: IllegalStateException) {
+                        Log.e("PlayerService", "音频焦点恢复时MediaPlayer状态异常，尝试重新播放", e)
+                        isPrepared = false
+                        playbackNeedsToResume = false
+                        playCurrentTrack() // 重新播放当前曲目
+                    } catch (e: Exception) {
+                        Log.e("PlayerService", "音频焦点恢复时出错", e)
+                        playbackNeedsToResume = false
+                        updatePlaybackState(PlaybackStateCompat.STATE_ERROR)
+                    }
+                }
+                
+                // 恢复正常音量
+                try {
+                    mediaPlayer?.setVolume(1.0f, 1.0f)
+                } catch (e: Exception) {
+                    Log.e("PlayerService", "恢复音量时出错", e)
+                }
+            }
+            
+            AudioManager.AUDIOFOCUS_LOSS -> {
+                // 永久失去音频焦点，暂停播放但记住需要恢复
+                hasAudioFocus = false
+                try {
+                    if (mediaPlayer?.isPlaying == true) {
+                        playbackNeedsToResume = true // 即使永久失去焦点，也标记需要恢复，以便其他应用结束后自动恢复
+                        mediaPlayer?.pause()
+                        stopProgressUpdate()
+                        updatePlaybackState(PlaybackStateCompat.STATE_PAUSED)
+                        Log.d("PlayerService", "永久失去音频焦点，暂停播放，等待恢复机会")
+                    } else {
+                        playbackNeedsToResume = false
+                    }
+                } catch (e: Exception) {
+                    Log.e("PlayerService", "处理永久失去音频焦点时出错", e)
+                }
+            }
+            
+            AudioManager.AUDIOFOCUS_LOSS_TRANSIENT -> {
+                // 临时失去音频焦点，暂停播放但记住需要恢复
+                hasAudioFocus = false
+                try {
+                    if (mediaPlayer?.isPlaying == true) {
+                        playbackNeedsToResume = true
+                        mediaPlayer?.pause()
+                        stopProgressUpdate()
+                        updatePlaybackState(PlaybackStateCompat.STATE_PAUSED)
+                        Log.d("PlayerService", "临时失去音频焦点，暂停播放")
+                    }
+                } catch (e: Exception) {
+                    Log.e("PlayerService", "处理临时失去音频焦点时出错", e)
+                }
+            }
+            
+            AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK -> {
+                // 临时失去音频焦点，但可以降低音量继续播放
+                try {
+                    if (mediaPlayer?.isPlaying == true) {
+                        mediaPlayer?.setVolume(0.2f, 0.2f) // 降低音量到20%
+                        Log.d("PlayerService", "临时失去音频焦点，降低音量")
+                    }
+                } catch (e: Exception) {
+                    Log.e("PlayerService", "降低音量时出错", e)
+                }
+            }
+        }
     }
 
     private fun createNotificationChannel() {
