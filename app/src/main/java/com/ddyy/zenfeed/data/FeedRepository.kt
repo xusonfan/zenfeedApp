@@ -2,6 +2,7 @@ package com.ddyy.zenfeed.data
 
 import android.content.Context
 import android.content.SharedPreferences
+import android.util.Log
 import androidx.core.content.edit
 import com.ddyy.zenfeed.data.network.ApiClient
 import com.google.gson.Gson
@@ -40,7 +41,7 @@ class FeedRepository(private val context: Context) {
             if (useCache && isCacheValid()) {
                 val cachedFeeds = getCachedFeeds()
                 if (cachedFeeds != null) {
-                    android.util.Log.d("FeedRepository", "从缓存加载 Feed 数据")
+                    Log.d("FeedRepository", "从缓存加载 Feed 数据")
                     return Result.success(
                         FeedResponse(
                             feeds = cachedFeeds,
@@ -75,11 +76,11 @@ class FeedRepository(private val context: Context) {
             
             // 缓存新获取的数据
             cacheFeeds(response.feeds)
-            android.util.Log.d("FeedRepository", "从网络获取并缓存 Feed 数据")
+            Log.d("FeedRepository", "从网络获取并缓存 Feed 数据")
             
             Result.success(response)
         } catch (e: Exception) {
-            android.util.Log.e("FeedRepository", "获取摘要失败", e)
+            Log.e("FeedRepository", "获取摘要失败", e)
             
             // 检查是否是SSL错误，提供更有用的错误信息
             val errorMessage = when {
@@ -100,12 +101,12 @@ class FeedRepository(private val context: Context) {
                 }
             }
             
-            android.util.Log.e("FeedRepository", errorMessage)
+            Log.e("FeedRepository", errorMessage)
             
             // 如果网络请求失败且有缓存数据，返回缓存数据
             val cachedFeeds = getCachedFeeds()
             if (cachedFeeds != null) {
-                android.util.Log.d("FeedRepository", "网络请求失败，返回缓存数据")
+                Log.d("FeedRepository", "网络请求失败，返回缓存数据")
                 return Result.success(FeedResponse(feeds = cachedFeeds, count = cachedFeeds.size))
             }
             
@@ -127,7 +128,7 @@ class FeedRepository(private val context: Context) {
                 null
             }
         } catch (e: Exception) {
-            android.util.Log.e("FeedRepository", "读取缓存失败", e)
+            Log.e("FeedRepository", "读取缓存失败", e)
             null
         }
     }
@@ -142,9 +143,9 @@ class FeedRepository(private val context: Context) {
                 putString(CACHE_KEY_FEEDS, feedsJson)
                     .putLong(CACHE_KEY_TIMESTAMP, System.currentTimeMillis())
             }
-            android.util.Log.d("FeedRepository", "Feed 数据已缓存，共 ${feeds.size} 条")
+            Log.d("FeedRepository", "Feed 数据已缓存，共 ${feeds.size} 条")
         } catch (e: Exception) {
-            android.util.Log.e("FeedRepository", "缓存数据失败", e)
+            Log.e("FeedRepository", "缓存数据失败", e)
         }
     }
     
@@ -169,7 +170,7 @@ class FeedRepository(private val context: Context) {
                 .remove(CACHE_KEY_TIMESTAMP)
                 .remove(CACHE_KEY_READ_FEEDS)
         }
-        android.util.Log.d("FeedRepository", "Feed 缓存已清除")
+        Log.d("FeedRepository", "Feed 缓存已清除")
     }
     
     /**
@@ -181,9 +182,9 @@ class FeedRepository(private val context: Context) {
             sharedPreferences.edit {
                 putString(CACHE_KEY_READ_FEEDS, readFeedsJson)
             }
-            android.util.Log.d("FeedRepository", "已读状态已保存，共 ${readFeedIds.size} 条")
+            Log.d("FeedRepository", "已读状态已保存，共 ${readFeedIds.size} 条")
         } catch (e: Exception) {
-            android.util.Log.e("FeedRepository", "保存已读状态失败", e)
+            Log.e("FeedRepository", "保存已读状态失败", e)
         }
     }
     
@@ -201,7 +202,7 @@ class FeedRepository(private val context: Context) {
                 emptySet()
             }
         } catch (e: Exception) {
-            android.util.Log.e("FeedRepository", "读取已读状态失败", e)
+            Log.e("FeedRepository", "读取已读状态失败", e)
             emptySet()
         }
     }
