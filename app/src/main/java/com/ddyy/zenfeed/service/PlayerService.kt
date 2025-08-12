@@ -216,6 +216,14 @@ class PlayerService : Service(), AudioManager.OnAudioFocusChangeListener {
         isPrepared = false
         stopProgressUpdate()
         
+        /**
+         * 后台播放修复：确保服务作为前台服务启动
+         *
+         * 问题：之前服务只是通过 bindService 绑定，当应用退出时容易被系统杀死导致播放停止
+         * 解决：在开始播放时立即启动前台服务，确保即使应用退出也能继续播放
+         */
+        startAsForegroundService()
+        
         // 请求音频焦点
         if (!requestAudioFocus()) {
             Log.w("PlayerService", "无法获取音频焦点，停止播放")
@@ -881,9 +889,31 @@ class PlayerService : Service(), AudioManager.OnAudioFocusChangeListener {
         }
     }
 
+    /**
+     * 停止前台服务但不销毁服务
+     */
+    fun stopForegroundService() {
+        try {
+            Log.d("PlayerService", "停止前台服务")
+            stopForeground(STOP_FOREGROUND_REMOVE)
+        } catch (e: Exception) {
+            Log.e("PlayerService", "停止前台服务失败", e)
+        }
+    }
+
     override fun onDestroy() {
         Log.d("PlayerService", "PlayerService onDestroy")
         stopProgressUpdate()
+        
+        /*
+         * 后台播放修复：正确停止前台服务
+         * 确保服务销毁时能正确清理前台服务状态，移除通知
+         */
+        try {
+            stopForeground(STOP_FOREGROUND_REMOVE)
+        } catch (e: Exception) {
+            Log.w("PlayerService", "停止前台服务时出错", e)
+        }
         
         // 释放音频焦点
         abandonAudioFocus()
@@ -1112,6 +1142,25 @@ class PlayerService : Service(), AudioManager.OnAudioFocusChangeListener {
         }
     }
 
+    /**
+     * 启动前台服务
+     *
+     * 后台播放修复：新增方法，确保播放时服务运行在前台模式
+     *
+     * @note 前台服务具有更高的优先级，不会因为应用退出而被立即杀死
+     *       这是实现真正后台播放的关键
+     */
+    private fun startAsForegroundService() {
+        try {
+            if (playlist.isNotEmpty()) {
+                updateNotification()
+                Log.d("PlayerService", "服务已启动为前台服务")
+            }
+        } catch (e: Exception) {
+            Log.e("PlayerService", "启动前台服务失败", e)
+        }
+    }
+
     private fun createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
@@ -1156,26 +1205,30 @@ class PlayerService : Service(), AudioManager.OnAudioFocusChangeListener {
         val notification = NotificationCompat.Builder(this, "zenfeed_player")
             .setContentTitle(track.labels.title ?: "未知标题")
             .setContentText(track.labels.source ?: "未知来源")
-            .setSmallIcon(android.R.drawable.ic_media_play) // Replace with your app icon
+            .setSmallIcon(android.R.drawable.ic_media_play) // 使用系统图标作为占位符
             .setContentIntent(contentPendingIntent) // 设置点击通知的跳转Intent
+            // 【后台播放修复】设置为持续通知，防止用户滑动删除
+            // 原因：普通通知可能被用户意外删除，导致前台服务失效，播放中断
+            .setOngoing(true) // 设置为持续通知，确保播放期间通知不会被删除
+            .setAutoCancel(false) // 防止点击后自动取消通知
             .addAction(
                 NotificationCompat.Action(
                     android.R.drawable.ic_media_previous,
-                    "Previous",
+                    "上一首",
                     MediaButtonReceiver.buildMediaButtonPendingIntent(this, PlaybackStateCompat.ACTION_SKIP_TO_PREVIOUS)
                 )
             )
             .addAction(
                 NotificationCompat.Action(
                     if (isPrepared && mediaPlayer?.isPlaying == true) android.R.drawable.ic_media_pause else android.R.drawable.ic_media_play,
-                    if (isPrepared && mediaPlayer?.isPlaying == true) "Pause" else "Play",
+                    if (isPrepared && mediaPlayer?.isPlaying == true) "暂停" else "播放",
                     MediaButtonReceiver.buildMediaButtonPendingIntent(this, PlaybackStateCompat.ACTION_PLAY_PAUSE)
                 )
             )
             .addAction(
                 NotificationCompat.Action(
                     android.R.drawable.ic_media_next,
-                    "Next",
+                    "下一首",
                     MediaButtonReceiver.buildMediaButtonPendingIntent(this, PlaybackStateCompat.ACTION_SKIP_TO_NEXT)
                 )
             )

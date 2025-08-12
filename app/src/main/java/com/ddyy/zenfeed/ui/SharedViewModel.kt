@@ -123,7 +123,17 @@ class SharedViewModel : ViewModel() {
      */
     fun getCurrentFeedIndex(): Int {
         return if (selectedFeed != null) {
-            allFeeds.indexOfFirst { it == selectedFeed }.coerceAtLeast(0)
+            // 先尝试对象引用匹配
+            val objectRefIndex = allFeeds.indexOfFirst { it == selectedFeed }
+            if (objectRefIndex != -1) {
+                objectRefIndex
+            } else {
+                // 对象引用匹配失败时，使用内容匹配（适用于从Intent创建的Feed对象）
+                allFeeds.indexOfFirst { feed ->
+                    feed.labels.title == selectedFeed?.labels?.title &&
+                    feed.time == selectedFeed?.time
+                }.coerceAtLeast(0)
+            }
         } else {
             0
         }

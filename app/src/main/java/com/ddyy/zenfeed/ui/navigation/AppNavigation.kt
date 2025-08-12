@@ -60,15 +60,26 @@ fun AppNavigation(sharedViewModel: SharedViewModel) {
     }
     
     // 监听导航标志，处理从通知栏跳转到详情页
-    LaunchedEffect(sharedViewModel.shouldNavigateToDetail) {
+    LaunchedEffect(sharedViewModel.shouldNavigateToDetail, feedsViewModel.feedsUiState) {
         if (sharedViewModel.shouldNavigateToDetail) {
-            // 导航到feedDetail页面
-            navController.navigate("feedDetail") {
-                // 如果当前不在feeds页面，先导航到feeds，然后到详情页
-                popUpTo("feeds") { inclusive = false }
+            // 确保feeds数据已经加载完成再导航
+            val feedsState = feedsViewModel.feedsUiState
+            if (feedsState is FeedsUiState.Success && feedsState.feeds.isNotEmpty()) {
+                // feeds数据已加载，更新SharedViewModel中的allFeeds
+                sharedViewModel.updateAllFeeds(feedsState.feeds)
+                
+                // 导航到feedDetail页面
+                navController.navigate("feedDetail") {
+                    // 如果当前不在feeds页面，先导航到feeds，然后到详情页
+                    popUpTo("feeds") { inclusive = false }
+                }
+                // 重置导航标志
+                sharedViewModel.setNavigateToDetail(false)
+            } else {
+                // feeds数据还没加载完成，触发加载
+                feedsViewModel.getFeeds()
+                // 保持导航标志，等待下次检查
             }
-            // 重置导航标志
-            sharedViewModel.setNavigateToDetail(false)
         }
     }
 
@@ -128,8 +139,9 @@ fun AppNavigation(sharedViewModel: SharedViewModel) {
                             it.labels.podcastUrl == targetFeed.labels.podcastUrl
                         }.coerceAtLeast(0)
 
-                        // 播放播客列表
-                        playerViewModel.playPodcastPlaylist(podcastFeeds, correctedIndex)
+                        // 【后台播放修复】播放播客列表时传入context参数
+                        // 原因：支持PlayerViewModel启动前台服务，确保后台播放功能
+                        playerViewModel.playPodcastPlaylist(podcastFeeds, correctedIndex, context)
                     }
                 },
                 playerViewModel = playerViewModel,
@@ -233,6 +245,7 @@ fun AppNavigation(sharedViewModel: SharedViewModel) {
         ) {
             val allFeeds = sharedViewModel.allFeeds
             val selectedFeed = sharedViewModel.selectedFeed
+            
             if (selectedFeed != null && allFeeds.isNotEmpty()) {
                 // 找到当前选中Feed在allFeeds中的索引
                 val initialIndex = sharedViewModel.getCurrentFeedIndex()
@@ -262,8 +275,9 @@ fun AppNavigation(sharedViewModel: SharedViewModel) {
                                 it.labels.podcastUrl == targetFeed.labels.podcastUrl
                             }.coerceAtLeast(0)
 
-                            // 播放播客列表
-                            playerViewModel.playPodcastPlaylist(podcastFeeds, correctedIndex)
+                            // 【后台播放修复】播放播客列表时传入context参数
+                            // 原因：支持PlayerViewModel启动前台服务，确保后台播放功能
+                            playerViewModel.playPodcastPlaylist(podcastFeeds, correctedIndex, context)
                         }
                     },
                     onFeedChanged = { newFeed ->
