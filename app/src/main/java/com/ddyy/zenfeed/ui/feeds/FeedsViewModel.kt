@@ -41,6 +41,18 @@ class FeedsViewModel(application: Application) : AndroidViewModel(application) {
     var isBackgroundRefreshing: Boolean by mutableStateOf(false)
         private set
     
+    // 新增内容数量状态（用于toast提醒和触发滚动）
+    var newContentCount: Int by mutableStateOf(0)
+        private set
+    
+    // 是否需要滚动到顶部的状态（刷新获得新内容时触发）
+    var shouldScrollToTop: Boolean by mutableStateOf(false)
+        private set
+    
+    // 刷新完成但没有新内容的状态（用于显示"没有新内容"提示）
+    var shouldShowNoNewContent: Boolean by mutableStateOf(false)
+        private set
+    
     // 原始的完整Feed列表
     private var allFeeds: List<Feed> = emptyList()
     
@@ -124,9 +136,25 @@ class FeedsViewModel(application: Application) : AndroidViewModel(application) {
             val result = feedRepository.getFeeds(useCache = false) // 强制从网络获取
             if (result.isSuccess) {
                 val newFeeds = result.getOrNull()?.feeds ?: emptyList()
+                
+                // 检测新增内容数量
+                val newContentCount = detectNewContent(allFeeds, newFeeds)
+                
+                // 更新Feed列表
                 allFeeds = newFeeds
                 updateFilteredFeeds()
-                Log.d("FeedsViewModel", "刷新完成，共 ${newFeeds.size} 条")
+                
+                // 如果有新内容，设置滚动到顶部状态和新增数量
+                if (newContentCount > 0) {
+                    this@FeedsViewModel.newContentCount = newContentCount
+                    shouldScrollToTop = true
+                    shouldShowNoNewContent = false
+                    Log.d("FeedsViewModel", "刷新完成，发现 $newContentCount 条新内容，总共 ${newFeeds.size} 条")
+                } else {
+                    // 没有新内容时，设置显示"没有新内容"提示的状态
+                    shouldShowNoNewContent = true
+                    Log.d("FeedsViewModel", "刷新完成，无新内容，总共 ${newFeeds.size} 条")
+                }
             } else {
                 // 刷新失败时保持当前数据不变
                 if (allFeeds.isEmpty()) {
@@ -171,6 +199,40 @@ class FeedsViewModel(application: Application) : AndroidViewModel(application) {
             updateFilteredFeeds() // 重新更新UI以反映阅读状态变化
             Log.d("FeedsViewModel", "标记文章为未读: ${feed.labels.title ?: "未知标题"}")
         }
+    }
+    
+    /**
+     * 检测新增内容数量
+     * 通过比较新旧Feed列表，找出真正新增的内容
+     */
+    private fun detectNewContent(oldFeeds: List<Feed>, newFeeds: List<Feed>): Int {
+        if (oldFeeds.isEmpty()) return 0 // 初次加载不算新增
+        
+        // 创建旧Feed的唯一标识符集合（使用标题+时间作为唯一标识）
+        val oldFeedIds = oldFeeds.map { "${it.labels.title ?: ""}-${it.time}" }.toSet()
+        
+        // 计算新Feed中不在旧Feed集合中的数量
+        val newContentCount = newFeeds.count { feed ->
+            val feedId = "${feed.labels.title ?: ""}-${feed.time}"
+            !oldFeedIds.contains(feedId)
+        }
+        
+        return newContentCount
+    }
+    
+    /**
+     * 清除滚动到顶部状态（UI处理完滚动后调用）
+     */
+    fun clearScrollToTopState() {
+        shouldScrollToTop = false
+        newContentCount = 0
+    }
+    
+    /**
+     * 清除"没有新内容"提示状态（UI显示完提示后调用）
+     */
+    fun clearNoNewContentState() {
+        shouldShowNoNewContent = false
     }
     
     /**

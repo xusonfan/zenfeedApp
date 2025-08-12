@@ -14,6 +14,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
@@ -35,8 +36,8 @@ import kotlinx.coroutines.launch
 @Composable
 fun AppNavigation(sharedViewModel: SharedViewModel) {
     val navController = rememberNavController()
-    val playerViewModel: PlayerViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
-    val feedsViewModel: FeedsViewModel = androidx.lifecycle.viewmodel.compose.viewModel() // 共享的FeedsViewModel
+    val playerViewModel: PlayerViewModel = viewModel()
+    val feedsViewModel: FeedsViewModel = viewModel() // 共享的FeedsViewModel
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
     
@@ -372,7 +373,7 @@ fun AppNavigation(sharedViewModel: SharedViewModel) {
                 )
             }
         ) {
-            val settingsViewModel = androidx.lifecycle.viewmodel.compose.viewModel<SettingsViewModel>()
+            val settingsViewModel = viewModel<SettingsViewModel>()
             SettingsScreen(
                 navController = navController,
                 settingsViewModel = settingsViewModel

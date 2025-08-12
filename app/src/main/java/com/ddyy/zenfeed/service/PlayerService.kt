@@ -164,6 +164,10 @@ class PlayerService : Service(), AudioManager.OnAudioFocusChangeListener {
         }
         
         Log.d("PlayerService", "MediaSession创建完成，isActive: ${mediaSession?.isActive}")
+        
+        // 【ANR修复】立即启动前台服务，避免startForegroundService()超时
+        // Android要求使用startForegroundService()启动的服务必须在5秒内调用startForeground()
+        startForegroundWithDefaultNotification()
     }
 
     fun setPlaylist(feeds: List<Feed>, startIndex: Int) {
@@ -1143,6 +1147,31 @@ class PlayerService : Service(), AudioManager.OnAudioFocusChangeListener {
     }
 
     /**
+     * 使用默认通知启动前台服务（ANR修复）
+     *
+     * 在服务创建时立即调用startForeground()，避免ANR
+     */
+    private fun startForegroundWithDefaultNotification() {
+        try {
+            Log.d("PlayerService", "使用默认通知启动前台服务")
+            
+            // 创建默认的播放器待机通知
+            val defaultNotification = NotificationCompat.Builder(this, "zenfeed_player")
+                .setContentTitle("ZenFeed 播放器")
+                .setContentText("准备就绪")
+                .setSmallIcon(android.R.drawable.ic_media_play)
+                .setOngoing(true)
+                .setAutoCancel(false)
+                .build()
+            
+            startForeground(1, defaultNotification)
+            Log.d("PlayerService", "前台服务启动成功")
+        } catch (e: Exception) {
+            Log.e("PlayerService", "启动默认前台服务失败", e)
+        }
+    }
+
+    /**
      * 启动前台服务
      *
      * 后台播放修复：新增方法，确保播放时服务运行在前台模式
@@ -1174,7 +1203,20 @@ class PlayerService : Service(), AudioManager.OnAudioFocusChangeListener {
     }
 
     private fun updateNotification() {
-        val track = playlist.getOrNull(currentTrackIndex) ?: return
+        val track = playlist.getOrNull(currentTrackIndex)
+        
+        // 如果没有播放列表，显示待机通知
+        if (track == null) {
+            val defaultNotification = NotificationCompat.Builder(this, "zenfeed_player")
+                .setContentTitle("ZenFeed 播放器")
+                .setContentText("准备就绪")
+                .setSmallIcon(android.R.drawable.ic_media_play)
+                .setOngoing(true)
+                .setAutoCancel(false)
+                .build()
+            startForeground(1, defaultNotification)
+            return
+        }
         
         // 创建点击通知跳转到文章详情的Intent
         val contentIntent = Intent(this, com.ddyy.zenfeed.MainActivity::class.java).apply {

@@ -495,6 +495,9 @@ fun FeedsScreen(
     val selectedCategory = feedsViewModel.selectedCategory
     val isRefreshing = feedsViewModel.isRefreshing
     val isBackgroundRefreshing = feedsViewModel.isBackgroundRefreshing
+    val shouldScrollToTop = feedsViewModel.shouldScrollToTop
+    val newContentCount = feedsViewModel.newContentCount
+    val shouldShowNoNewContent = feedsViewModel.shouldShowNoNewContent
     val onRefresh = { feedsViewModel.refreshFeeds() }
     val onCategorySelected = { category: String -> feedsViewModel.selectCategory(category) }
 
@@ -514,9 +517,14 @@ fun FeedsScreen(
         selectedCategory = selectedCategory,
         isRefreshing = isRefreshing,
         isBackgroundRefreshing = isBackgroundRefreshing,
+        shouldScrollToTop = shouldScrollToTop,
+        newContentCount = newContentCount,
+        shouldShowNoNewContent = shouldShowNoNewContent,
         onFeedClick = onFeedClick,
         onCategorySelected = onCategorySelected,
         onRefresh = onRefresh,
+        onScrollToTopHandled = { feedsViewModel.clearScrollToTopState() },
+        onNoNewContentHandled = { feedsViewModel.clearNoNewContentState() },
         onSettingsClick = onSettingsClick,
         onLoggingClick = onLoggingClick,
         onAboutClick = onAboutClick,
@@ -540,9 +548,14 @@ fun FeedsScreenContent(
     selectedCategory: String,
     isRefreshing: Boolean,
     isBackgroundRefreshing: Boolean,
+    shouldScrollToTop: Boolean,
+    newContentCount: Int,
+    shouldShowNoNewContent: Boolean,
     onFeedClick: (Feed) -> Unit,
     onCategorySelected: (String) -> Unit,
     onRefresh: () -> Unit,
+    onScrollToTopHandled: () -> Unit,
+    onNoNewContentHandled: () -> Unit,
     onSettingsClick: () -> Unit,
     onLoggingClick: () -> Unit,
     onAboutClick: () -> Unit,
@@ -984,6 +997,56 @@ fun FeedsScreenContent(
                             
                             // 清除滚动状态，避免重复触发
                             sharedViewModel.clearScrollState()
+                        }
+                    }
+                    
+                    // 监听新增内容状态并处理滚动到顶部和toast提醒
+                    LaunchedEffect(shouldScrollToTop, newContentCount) {
+                        if (shouldScrollToTop && newContentCount > 0) {
+                            Log.d("FeedsScreen", "检测到新增内容：$newContentCount 条，准备滚动到顶部")
+                            
+                            // 显示toast提醒
+                            Toast.makeText(
+                                context,
+                                "已更新 $newContentCount 条新内容",
+                                Toast.LENGTH_SHORT
+                            ).show()
+                            
+                            // 等待一下确保UI稳定，然后滚动到当前分类的列表顶部
+                            kotlinx.coroutines.delay(100)
+                            
+                            try {
+                                val currentListState = listStates[selectedCategory]
+                                if (currentListState != null) {
+                                    // 直接跳转到顶部，因为是新内容刷新
+                                    currentListState.scrollToItem(0)
+                                    Log.d("FeedsScreen", "滚动到顶部完成")
+                                } else {
+                                    Log.w("FeedsScreen", "当前分类 '$selectedCategory' 的ListState不存在")
+                                }
+                            } catch (e: Exception) {
+                                Log.e("FeedsScreen", "滚动到顶部失败", e)
+                            }
+                            
+                            // 通知ViewModel清除状态
+                            onScrollToTopHandled()
+                        }
+                    }
+                    
+                    // 监听"没有新内容"状态并显示toast提醒
+                    LaunchedEffect(shouldShowNoNewContent) {
+                        if (shouldShowNoNewContent) {
+                            Log.d("FeedsScreen", "刷新完成但没有新内容")
+                            
+                            // 显示toast提醒
+                            Toast.makeText(
+                                context,
+                                "没有获取到新的内容",
+                                Toast.LENGTH_SHORT
+                            ).show()
+                            
+                            // 通知ViewModel清除状态
+                            onNoNewContentHandled()
                         }
                     }
                     
@@ -1513,9 +1576,14 @@ fun FeedsScreenSuccessPreview() {
             selectedCategory = "",
             isRefreshing = false,
             isBackgroundRefreshing = false,
+            shouldScrollToTop = false,
+            newContentCount = 0,
+            shouldShowNoNewContent = false,
             onFeedClick = {},
             onCategorySelected = {},
             onRefresh = {},
+            onScrollToTopHandled = {},
+            onNoNewContentHandled = {},
             onSettingsClick = {},
             onLoggingClick = {},
             onAboutClick = {},
