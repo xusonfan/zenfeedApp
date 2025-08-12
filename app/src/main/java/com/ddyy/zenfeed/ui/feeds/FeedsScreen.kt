@@ -1268,6 +1268,15 @@ fun FeedsScreenContent(
                         }
                     }
                     
+                    // 监听feedsUiState变化，同步更新SharedViewModel中的allFeeds
+                    LaunchedEffect(feedsUiState) {
+                        val currentFeedsState = feedsUiState
+                        if (currentFeedsState is FeedsUiState.Success) {
+                            Log.d("FeedsScreen", "feedsUiState变化，同步更新SharedViewModel中的allFeeds，共 ${currentFeedsState.feeds.size} 条")
+                            sharedViewModel?.updateAllFeeds(currentFeedsState.feeds)
+                        }
+                    }
+                    
                     // 监听新增内容状态并处理滚动到顶部和toast提醒
                     LaunchedEffect(shouldScrollToTop, newContentCount) {
                         if (shouldScrollToTop && newContentCount > 0) {

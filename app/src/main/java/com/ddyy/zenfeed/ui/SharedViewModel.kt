@@ -1,6 +1,7 @@
 package com.ddyy.zenfeed.ui
 
 import android.content.Intent
+import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -53,7 +54,15 @@ class SharedViewModel : ViewModel() {
      * 更新全部feeds列表
      */
     fun updateAllFeeds(feeds: List<Feed>) {
+        Log.d("SharedViewModel", "更新allFeeds数据，从 ${allFeeds.size} 条更新到 ${feeds.size} 条")
         allFeeds = feeds
+    }
+    
+    /**
+     * 根据标题在allFeeds中查找文章索引
+     */
+    fun findFeedIndexByTitle(title: String): Int {
+        return allFeeds.indexOfFirst { it.labels?.title == title }
     }
     
     /**
@@ -126,15 +135,19 @@ class SharedViewModel : ViewModel() {
             // 先尝试对象引用匹配
             val objectRefIndex = allFeeds.indexOfFirst { it == selectedFeed }
             if (objectRefIndex != -1) {
+                Log.d("SharedViewModel", "通过对象引用找到选中文章索引: $objectRefIndex")
                 objectRefIndex
             } else {
                 // 对象引用匹配失败时，使用内容匹配（适用于从Intent创建的Feed对象）
-                allFeeds.indexOfFirst { feed ->
+                val contentIndex = allFeeds.indexOfFirst { feed ->
                     feed.labels.title == selectedFeed?.labels?.title &&
                     feed.time == selectedFeed?.time
                 }.coerceAtLeast(0)
+                Log.d("SharedViewModel", "通过内容匹配找到选中文章索引: $contentIndex, 标题: '${selectedFeed?.labels?.title}'")
+                contentIndex
             }
         } else {
+            Log.d("SharedViewModel", "没有选中文章，返回索引0")
             0
         }
     }

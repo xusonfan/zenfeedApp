@@ -18,6 +18,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import com.ddyy.zenfeed.data.Feed
 import com.ddyy.zenfeed.data.SettingsDataStore
 import com.ddyy.zenfeed.ui.SharedViewModel
 import com.ddyy.zenfeed.ui.about.AboutScreen
@@ -244,12 +245,53 @@ fun AppNavigation(sharedViewModel: SharedViewModel) {
                 )
             }
         ) {
-            val allFeeds = sharedViewModel.allFeeds
+            // 确保使用最新的feeds数据，但要考虑播放器状态
+            val currentFeedsState = feedsViewModel.feedsUiState
+            val baseFeeds = if (currentFeedsState is FeedsUiState.Success) {
+                currentFeedsState.feeds
+            } else {
+                sharedViewModel.allFeeds
+            }
+            
+            // 获取播放器状态，检查是否有正在播放的内容
+            val playlistInfo = playerViewModel.playlistInfo.value
+            val isPlaying = playerViewModel.isPlaying.value
+            
+            // 构建详情页要显示的feeds列表
+            val allFeeds = if (isPlaying == true && playlistInfo != null && playlistInfo.totalCount > 0) {
+                // 如果正在播放播客，确保包含播放列表中的所有文章
+                val playerPlaylist = playerViewModel.getCurrentPlaylist()
+                val mergedFeeds = mutableListOf<Feed>()
+                
+                // 先添加最新的feeds数据
+                mergedFeeds.addAll(baseFeeds)
+                
+                // 添加播放列表中但不在最新feeds中的文章（避免重复）
+                playerPlaylist.forEach { playerFeed ->
+                    if (mergedFeeds.none { it.labels.title == playerFeed.labels.title && it.time == playerFeed.time }) {
+                        mergedFeeds.add(playerFeed)
+                    }
+                }
+                
+                Log.d("AppNavigation", "播放中状态，合并列表: 基础${baseFeeds.size}条 + 播放列表${playerPlaylist.size}条 = ${mergedFeeds.size}条")
+                mergedFeeds
+            } else {
+                // 没有在播放，直接使用基础feeds
+                baseFeeds
+            }
+            
             val selectedFeed = sharedViewModel.selectedFeed
             
             if (selectedFeed != null && allFeeds.isNotEmpty()) {
+                // 同步更新SharedViewModel中的allFeeds数据
+                if (currentFeedsState is FeedsUiState.Success) {
+                    sharedViewModel.updateAllFeeds(allFeeds)
+                }
+                
                 // 找到当前选中Feed在allFeeds中的索引
                 val initialIndex = sharedViewModel.getCurrentFeedIndex()
+                
+                Log.d("AppNavigation", "进入详情页，选中文章: ${selectedFeed.labels.title}, 计算索引: $initialIndex, 总文章数: ${allFeeds.size}")
                 
                 FeedDetailScreen(
                     allFeeds = allFeeds,
