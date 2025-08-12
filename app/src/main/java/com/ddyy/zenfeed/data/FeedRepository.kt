@@ -41,7 +41,12 @@ class FeedRepository(private val context: Context) {
                 val cachedFeeds = getCachedFeeds()
                 if (cachedFeeds != null) {
                     android.util.Log.d("FeedRepository", "从缓存加载 Feed 数据")
-                    return Result.success(FeedResponse(feeds = cachedFeeds))
+                    return Result.success(
+                        FeedResponse(
+                            feeds = cachedFeeds,
+                            count = cachedFeeds.size
+                        )
+                    )
                 }
             }
             
@@ -101,7 +106,7 @@ class FeedRepository(private val context: Context) {
             val cachedFeeds = getCachedFeeds()
             if (cachedFeeds != null) {
                 android.util.Log.d("FeedRepository", "网络请求失败，返回缓存数据")
-                return Result.success(FeedResponse(feeds = cachedFeeds))
+                return Result.success(FeedResponse(feeds = cachedFeeds, count = cachedFeeds.size))
             }
             
             // 返回包含详细错误信息的失败结果

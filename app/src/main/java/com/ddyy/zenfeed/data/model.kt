@@ -7,15 +7,15 @@ import java.util.Date
 import java.util.Locale
 
 data class FeedResponse(
-    @SerializedName("feeds")
-    val feeds: List<Feed>
+    @SerializedName("summary") val summary: String? = null, // LLM生成的内容摘要，当请求中summarize为true时返回
+    @SerializedName("feeds") val feeds: List<Feed>, // 符合查询条件的Feed数组
+    @SerializedName("count") val count: Int // 返回的Feed数量
 )
 
 data class Feed(
-    @SerializedName("labels")
-    val labels: Labels,
-    @SerializedName("time")
-    val time: String,
+    @SerializedName("labels") val labels: Labels, // Feed的元数据标签，包含类型、来源、标题等信息
+    @SerializedName("time") val time: String, // Feed被系统记录或处理的时间戳(RFC3339格式)
+    @SerializedName("score") val score: Float? = null, // 语义搜索的相关性得分，得分越高相关性越强
     // 阅读状态，默认为未读
     val isRead: Boolean = false
 ) {
@@ -93,41 +93,27 @@ data class Feed(
 }
 
 data class FeedRequest(
-    @SerializedName("start")
-    val start: String,
-    @SerializedName("end")
-    val end: String,
-    @SerializedName("limit")
-    val limit: Int,
-    @SerializedName("query")
-    val query: String,
-    @SerializedName("summarize")
-    val summarize: Boolean
+    @SerializedName("query") val query: String? = null, // 用于语义搜索的查询字符串，至少需要5个字符
+    @SerializedName("threshold") val threshold: Float? = null, // 语义搜索的相关性阈值，范围[0,1]，默认0.55
+    @SerializedName("label_filters") val labelFilters: List<String>? = null, // 标签过滤器数组，格式为"key=value"或"key!=value"
+    @SerializedName("summarize") val summarize: Boolean? = null, // 是否对查询结果进行摘要，默认false
+    @SerializedName("limit") val limit: Int? = null, // 返回Feed结果的最大数量，范围[1,500]，默认10
+    @SerializedName("start") val start: String? = null, // 查询时间范围的开始时间(包含)，RFC3339格式，默认24小时前
+    @SerializedName("end") val end: String? = null // 查询时间范围的结束时间(不包含)，RFC3339格式，默认当前时间
 )
 
 data class Labels(
-    @SerializedName("category")
-    val category: String?,
-    @SerializedName("content")
-    val content: String?,
-    @SerializedName("link")
-    val link: String?,
-    @SerializedName("podcast_url")
-    val podcastUrl: String?,
-    @SerializedName("pub_time")
-    val pubTime: String?,
-    @SerializedName("source")
-    val source: String?,
-    @SerializedName("summary")
-    val summary: String?,
-    @SerializedName("summary_html_snippet")
-    val summaryHtmlSnippet: String?,
-    @SerializedName("tags")
-    val tags: String?,
-    @SerializedName("title")
-    val title: String?,
-    @SerializedName("type")
-    val type: String?
+    @SerializedName("category") val category: String? = null, // Feed的分类标签
+    @SerializedName("content") val content: String? = null, // Feed的详细内容
+    @SerializedName("link") val link: String? = null, // Feed的原始链接地址
+    @SerializedName("podcast_url") val podcastUrl: String? = null, // 播客音频文件的URL地址
+    @SerializedName("pub_time") val pubTime: String? = null, // Feed的发布时间
+    @SerializedName("source") val source: String? = null, // Feed的来源名称
+    @SerializedName("summary") val summary: String? = null, // Feed的摘要信息
+    @SerializedName("summary_html_snippet") val summaryHtmlSnippet: String? = null, // Feed摘要的HTML片段
+    @SerializedName("tags") val tags: String? = null, // Feed的标签信息
+    @SerializedName("title") val title: String? = null, // Feed的标题
+    @SerializedName("type") val type: String? = null // Feed的类型(如rss、github_release等)
 )
 
 /**
