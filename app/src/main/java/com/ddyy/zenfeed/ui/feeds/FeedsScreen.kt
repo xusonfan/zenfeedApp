@@ -7,6 +7,7 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.focusable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -659,6 +660,9 @@ fun FeedsScreenContent(
     
     // 搜索历史记录显示状态
     var showSearchHistory by remember { mutableStateOf(false) }
+    
+    // 搜索前的查询状态，用于退出搜索时恢复
+    var searchQueryBeforeSearch by remember { mutableStateOf("") }
 
     // 抽屉状态管理
     val drawerState = rememberDrawerState(DrawerValue.Closed)
@@ -697,10 +701,23 @@ fun FeedsScreenContent(
     // 返回键处理逻辑
     BackHandler {
         if (isSearchActive) {
-            isSearchActive = false
-            searchText = ""
-            onSearchQueryChanged("")
-            showSearchHistory = false
+            // 如果搜索框为空，退出搜索模式并恢复搜索前的状态
+            if (searchText.isEmpty()) {
+                isSearchActive = false
+                showSearchHistory = false
+                keyboardController?.hide()
+                // 恢复搜索前的查询
+                onSearchQueryChanged(searchQueryBeforeSearch)
+            } else {
+                // 如果有搜索内容，只清空搜索内容但不退出搜索模式
+                searchText = ""
+                showSearchHistory = false
+                // 重新聚焦到搜索框并显示键盘
+                coroutineScope.launch {
+                    focusRequester.requestFocus()
+                    keyboardController?.show()
+                }
+            }
         } else {
             val currentTime = System.currentTimeMillis()
             val currentCategory = pagerCategories.getOrNull(pagerState.currentPage) ?: ""
@@ -878,7 +895,14 @@ fun FeedsScreenContent(
                                 DropdownMenu(
                                     expanded = showSearchHistory && searchHistory.isNotEmpty(),
                                     onDismissRequest = { showSearchHistory = false },
-                                    modifier = Modifier.fillMaxWidth()
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .focusable(false), // 防止抢夺焦点
+                                    properties = androidx.compose.ui.window.PopupProperties(
+                                        focusable = false, // 禁止焦点抢夺
+                                        dismissOnBackPress = true,
+                                        dismissOnClickOutside = true
+                                    )
                                 ) {
                                     // 标题行
                                     Row(
@@ -950,8 +974,13 @@ fun FeedsScreenContent(
                             }
                             LaunchedEffect(Unit) {
                                 focusRequester.requestFocus()
+                                // 延迟显示搜索历史，确保键盘先弹出
+                                kotlinx.coroutines.delay(200)
                                 if (searchText.isEmpty() && searchHistory.isNotEmpty()) {
                                     showSearchHistory = true
+                                    // 搜索历史显示后重新聚焦到搜索框
+                                    kotlinx.coroutines.delay(50)
+                                    focusRequester.requestFocus()
                                 }
                             }
                         } else {
@@ -1020,8 +1049,8 @@ fun FeedsScreenContent(
                         if (isSearchActive) {
                             IconButton(onClick = {
                                 if (searchText.isNotEmpty()) {
+                                    // 只清空输入框，不触发搜索重载
                                     searchText = ""
-                                    onSearchQueryChanged("")
                                     showSearchHistory = false
                                     // 清空后重新聚焦到搜索框并显示键盘
                                     coroutineScope.launch {
@@ -1029,15 +1058,28 @@ fun FeedsScreenContent(
                                         keyboardController?.show()
                                     }
                                 } else {
+                                    // 输入框为空时退出搜索模式，恢复搜索前的状态
                                     isSearchActive = false
                                     showSearchHistory = false
                                     keyboardController?.hide()
+                                    // 恢复搜索前的查询
+                                    onSearchQueryChanged(searchQueryBeforeSearch)
                                 }
                             }) {
                                 Icon(Icons.Default.Close, contentDescription = "关闭搜索")
                             }
                         } else {
-                            IconButton(onClick = { isSearchActive = true }) {
+                            IconButton(onClick = { 
+                                isSearchActive = true
+                                // 保存搜索前的查询状态
+                                searchQueryBeforeSearch = searchQuery
+                                // 触发键盘弹出
+                                coroutineScope.launch {
+                                    kotlinx.coroutines.delay(300) // 等待搜索框完全激活
+                                    focusRequester.requestFocus()
+                                    keyboardController?.show()
+                                }
+                            }) {
                                 Icon(Icons.Default.Search, contentDescription = "搜索")
                             }
                         }
