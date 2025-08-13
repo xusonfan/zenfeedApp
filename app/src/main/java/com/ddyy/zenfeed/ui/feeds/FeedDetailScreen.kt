@@ -166,9 +166,15 @@ fun FeedDetailScreen(
                             overflow = TextOverflow.Ellipsis
                         )
                         Text(
-                            text = "${pagerState.currentPage + 1} / ${allFeeds.size}",
+                            text = if (scrollProgress >= 0.5f) {
+                                "${pagerState.currentPage + 1} / ${allFeeds.size} · ${currentFeed.labels.source.orDefaultSource()}"
+                            } else {
+                                "${pagerState.currentPage + 1} / ${allFeeds.size}"
+                            },
                             style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                     }
                 },
