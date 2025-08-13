@@ -1,5 +1,6 @@
 import java.text.SimpleDateFormat
 import java.util.Date
+import java.util.Properties
 
 plugins {
     alias(libs.plugins.android.application)
@@ -26,13 +27,40 @@ android {
         buildConfigField("String", "BUILD_DATE", "\"${SimpleDateFormat("yyyy-MM-dd").format(Date())}\"")
     }
 
+    signingConfigs {
+        create("release") {
+            // 为了安全，密钥库信息从 local.properties 文件中读取
+            val properties = Properties()
+            val localPropertiesFile = project.rootProject.file("local.properties")
+            if (localPropertiesFile.exists()) {
+                properties.load(localPropertiesFile.inputStream())
+            }
+
+            val keystoreFile = properties.getProperty("keystore.file")
+            val keystorePassword = properties.getProperty("keystore.password")
+            val keyAlias = properties.getProperty("key.alias")
+            val keyPassword = properties.getProperty("key.password")
+
+            if (keystoreFile != null && project.rootProject.file(keystoreFile).exists()) {
+                storeFile = project.rootProject.file(keystoreFile)
+                storePassword = keystorePassword
+                this.keyAlias = keyAlias
+                this.keyPassword = keyPassword
+            } else {
+                println("未在 local.properties 中找到密钥库配置，release 构建将不会被签名。")
+            }
+        }
+    }
+
     buildTypes {
         release {
-            isMinifyEnabled = false
+            isMinifyEnabled = true 
+            isShrinkResources = true 
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            signingConfig = signingConfigs.getByName("release")
         }
     }
     compileOptions {
