@@ -9,7 +9,8 @@ import java.util.Locale
 data class FeedResponse(
     @SerializedName("summary") val summary: String? = null, // LLM生成的内容摘要，当请求中summarize为true时返回
     @SerializedName("feeds") val feeds: List<Feed>, // 符合查询条件的Feed数组
-    @SerializedName("count") val count: Int // 返回的Feed数量
+    @SerializedName("count") val count: Int, // 返回的Feed数量
+    val error: String? = null // 网络请求错误信息，用于显示toast提示
 )
 
 data class Feed(

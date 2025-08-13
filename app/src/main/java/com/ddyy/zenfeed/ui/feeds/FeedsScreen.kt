@@ -126,6 +126,7 @@ fun FeedsScreen(
     val shouldScrollToTop = feedsViewModel.shouldScrollToTop
     val newContentCount = feedsViewModel.newContentCount
     val shouldShowNoNewContent = feedsViewModel.shouldShowNoNewContent
+    val errorMessage = feedsViewModel.errorMessage
     val onRefresh = { feedsViewModel.refreshFeeds() }
     val onCategorySelected = { category: String -> feedsViewModel.selectCategory(category) }
 
@@ -149,11 +150,13 @@ fun FeedsScreen(
         shouldScrollToTop = shouldScrollToTop,
         newContentCount = newContentCount,
         shouldShowNoNewContent = shouldShowNoNewContent,
+        errorMessage = errorMessage,
         onFeedClick = onFeedClick,
         onCategorySelected = onCategorySelected,
         onRefresh = onRefresh,
         onScrollToTopHandled = { feedsViewModel.clearScrollToTopState() },
         onNoNewContentHandled = { feedsViewModel.clearNoNewContentState() },
+        onErrorMessageHandled = { feedsViewModel.clearErrorMessage() },
         onSettingsClick = onSettingsClick,
         onLoggingClick = onLoggingClick,
         onAboutClick = onAboutClick,
@@ -191,11 +194,13 @@ fun FeedsScreenContent(
     shouldScrollToTop: Boolean,
     newContentCount: Int,
     shouldShowNoNewContent: Boolean,
+    errorMessage: String,
     onFeedClick: (Feed) -> Unit,
     onCategorySelected: (String) -> Unit,
     onRefresh: () -> Unit,
     onScrollToTopHandled: () -> Unit,
     onNoNewContentHandled: () -> Unit,
+    onErrorMessageHandled: () -> Unit,
     onSettingsClick: () -> Unit,
     onLoggingClick: () -> Unit,
     onAboutClick: () -> Unit,
@@ -448,7 +453,7 @@ fun FeedsScreenContent(
                                             showSearchHistory =
                                                 it.isNotEmpty() && searchHistory.isNotEmpty()
                                         },
-                                        placeholder = { Text("语义搜索，长句效果更佳") },
+                                        placeholder = { Text("语义搜索") },
                                         modifier = Modifier
                                             .fillMaxWidth()
                                             .focusRequester(focusRequester),
@@ -971,6 +976,21 @@ fun FeedsScreenContent(
                                 onNoNewContentHandled()
                             }
                         }
+                        
+                        // 监听网络请求错误消息状态并显示toast提醒
+                        LaunchedEffect(errorMessage) {
+                            if (errorMessage.isNotEmpty()) {
+                                // 显示错误toast提醒
+                                Toast.makeText(
+                                    context,
+                                    errorMessage,
+                                    Toast.LENGTH_SHORT
+                                ).show()
+                                
+                                // 清除状态，避免重复显示
+                                onErrorMessageHandled()
+                            }
+                        }
 
                         // 内容区域
                         HorizontalPager(
@@ -1236,11 +1256,13 @@ fun FeedsScreenSuccessPreview() {
             shouldScrollToTop = false,
             newContentCount = 0,
             shouldShowNoNewContent = false,
+            errorMessage = "",
             onFeedClick = {},
             onCategorySelected = {},
             onRefresh = {},
             onScrollToTopHandled = {},
             onNoNewContentHandled = {},
+            onErrorMessageHandled = {},
             onSettingsClick = {},
             onLoggingClick = {},
             onAboutClick = {},

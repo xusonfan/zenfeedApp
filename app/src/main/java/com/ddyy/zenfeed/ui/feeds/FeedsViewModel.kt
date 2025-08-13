@@ -54,6 +54,10 @@ class FeedsViewModel(application: Application) : AndroidViewModel(application) {
     var shouldShowNoNewContent: Boolean by mutableStateOf(false)
         private set
     
+    // 网络请求错误消息状态（用于显示toast提示）
+    var errorMessage: String by mutableStateOf("")
+        private set
+    
     // 原始的完整Feed列表
     private var allFeeds: List<Feed> = emptyList()
     
@@ -116,6 +120,9 @@ class FeedsViewModel(application: Application) : AndroidViewModel(application) {
      */
     fun getFeeds(forceRefresh: Boolean = false) {
         viewModelScope.launch {
+            // 清除之前的错误消息状态
+            errorMessage = ""
+            
             // 如果当前没有数据或强制刷新，显示加载状态
             if (allFeeds.isEmpty() || forceRefresh) {
                 feedsUiState = FeedsUiState.Loading
@@ -126,14 +133,22 @@ class FeedsViewModel(application: Application) : AndroidViewModel(application) {
 
             val result = feedRepository.getFeeds(useCache = !forceRefresh, hours = selectedTimeRangeHours, query = searchQuery, threshold = if (searchQuery.isNotEmpty()) searchThreshold else null)
             if (result.isSuccess) {
-                val newFeeds = result.getOrNull()?.feeds ?: emptyList()
+                val feedResponse = result.getOrNull()
+                val newFeeds = feedResponse?.feeds ?: emptyList()
+                // 检查是否有网络错误信息（即使请求成功返回了缓存数据）
+                if (feedResponse?.error != null) {
+                    errorMessage = feedResponse.error
+                }
                 if (newFeeds != allFeeds || forceRefresh) { // 数据不同或强制刷新时更新
                     allFeeds = newFeeds
                     updateFilteredFeeds()
                     Log.d("FeedsViewModel", "已更新网络数据，共 ${newFeeds.size} 条")
                 }
             } else {
-                // 如果网络获取失败但有缓存数据，不改变当前状态
+                // 网络请求失败，设置错误消息状态
+                errorMessage = result.exceptionOrNull()?.message ?: "网络请求失败"
+                
+                // 如果网络获取失败但没有缓存数据，显示错误状态
                 if (allFeeds.isEmpty()) {
                     feedsUiState = FeedsUiState.Error
                 }
@@ -149,10 +164,18 @@ class FeedsViewModel(application: Application) : AndroidViewModel(application) {
      */
     fun refreshFeeds() {
         viewModelScope.launch {
+            // 清除之前的错误消息状态
+            errorMessage = ""
             isRefreshing = true
             val result = feedRepository.getFeeds(useCache = false, hours = selectedTimeRangeHours, query = searchQuery, threshold = if (searchQuery.isNotEmpty()) searchThreshold else null) // 强制从网络获取
             if (result.isSuccess) {
-                val newFeeds = result.getOrNull()?.feeds ?: emptyList()
+                val feedResponse = result.getOrNull()
+                val newFeeds = feedResponse?.feeds ?: emptyList()
+                
+                // 检查是否有网络错误信息（即使请求成功返回了缓存数据）
+                if (feedResponse?.error != null) {
+                    errorMessage = feedResponse.error
+                }
 
                 // 检测新增内容数量
                 val newContentCount = detectNewContent(allFeeds, newFeeds)
@@ -173,6 +196,9 @@ class FeedsViewModel(application: Application) : AndroidViewModel(application) {
                     Log.d("FeedsViewModel", "刷新完成，无新内容，总共 ${newFeeds.size} 条")
                 }
             } else {
+                // 刷新失败，设置错误消息状态
+                errorMessage = result.exceptionOrNull()?.message ?: "刷新失败"
+                
                 // 刷新失败时保持当前数据不变
                 if (allFeeds.isEmpty()) {
                     feedsUiState = FeedsUiState.Error
@@ -305,6 +331,13 @@ class FeedsViewModel(application: Application) : AndroidViewModel(application) {
      */
     fun clearNoNewContentState() {
         shouldShowNoNewContent = false
+    }
+    
+    /**
+     * 清除错误消息状态（UI显示完错误提示后调用）
+     */
+    fun clearErrorMessage() {
+        errorMessage = ""
     }
     
     /**

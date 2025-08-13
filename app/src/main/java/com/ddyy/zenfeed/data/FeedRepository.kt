@@ -105,11 +105,18 @@ class FeedRepository(private val context: Context) {
             
             Log.e("FeedRepository", errorMessage)
             
-            // 如果网络请求失败且有缓存数据，返回缓存数据
+            // 如果网络请求失败且有缓存数据，返回缓存数据但仍然通知UI有网络错误
             val cachedFeeds = getCachedFeeds()
             if (cachedFeeds != null) {
                 Log.d("FeedRepository", "网络请求失败，返回缓存数据")
-                return Result.success(FeedResponse(feeds = cachedFeeds, count = cachedFeeds.size))
+                // 创建包含缓存数据和错误信息的复合结果
+                return Result.success(
+                    FeedResponse(
+                        feeds = cachedFeeds,
+                        count = cachedFeeds.size,
+                        error = errorMessage
+                    )
+                )
             }
             
             // 返回包含详细错误信息的失败结果
