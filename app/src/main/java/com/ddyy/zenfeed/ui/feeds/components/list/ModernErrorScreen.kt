@@ -23,7 +23,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 
 @Composable
@@ -96,15 +95,5 @@ fun ModernErrorScreen(
                 )
             )
         }
-    }
-}
-
-@Preview(showBackground = true)
-@Composable
-fun ModernErrorScreenPreview() {
-    MaterialTheme {
-        ModernErrorScreen(
-            onRetry = { /* 预览中的重试逻辑 */ }
-        )
     }
 }

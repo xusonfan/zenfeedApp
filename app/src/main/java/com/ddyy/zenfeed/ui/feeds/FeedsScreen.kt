@@ -79,11 +79,9 @@ import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.ddyy.zenfeed.data.Feed
-import com.ddyy.zenfeed.data.Labels
 import com.ddyy.zenfeed.extension.getLastReadFeedIndex
 import com.ddyy.zenfeed.extension.groupByCategory
 import com.ddyy.zenfeed.ui.feeds.components.common.FeedItem
@@ -241,13 +239,13 @@ fun FeedsScreenContent(
 
     // 搜索前的查询状态，用于退出搜索时恢复
     var searchQueryBeforeSearch by remember { mutableStateOf("") }
-    
+
     // 阈值设置对话框显示状态
     var showThresholdDialog by remember { mutableStateOf(false) }
-    
+
     // 当前编辑的阈值
     var currentEditThreshold by remember { mutableStateOf(searchThreshold) }
-    
+
     // 当前编辑的限制数量
     var currentEditLimit by remember { mutableStateOf(searchLimit) }
 
@@ -312,8 +310,8 @@ fun FeedsScreenContent(
             val currentListState = listStates[currentCategory]
 
             // 检查当前是否在列表顶部
-            val isAtTop = currentListState?.firstVisibleItemIndex == 0 &&
-                    currentListState.firstVisibleItemScrollOffset == 0
+            val isAtTop =
+                currentListState?.firstVisibleItemIndex == 0 && currentListState.firstVisibleItemScrollOffset == 0
 
             if (!isAtTop) {
                 // 如果不在顶部，滚动到顶部 - 智能选择滚动方式
@@ -332,7 +330,7 @@ fun FeedsScreenContent(
                             currentListState?.scrollToItem(0)
                         }
                         hasScrolledToTop = true
-                    } catch (e: kotlinx.coroutines.CancellationException) {
+                    } catch (e: CancellationException) {
                         // 检查是否是LeftCompositionCancellationException
                         if (e.message?.contains("left the composition") == true) {
                             Log.w("FeedsScreen", "组合已离开，返回键滚动操作被取消", e)
@@ -363,15 +361,14 @@ fun FeedsScreenContent(
 
     // 使用 ModalNavigationDrawer 包装整个内容
     ModalNavigationDrawer(
-        drawerState = drawerState,
-        drawerContent = {
+        drawerState = drawerState, drawerContent = {
             DrawerContent(
                 onSettingsClick = {
-                    coroutineScope.launch {
-                        drawerState.close()
-                    }
-                    onSettingsClick()
-                },
+                coroutineScope.launch {
+                    drawerState.close()
+                }
+                onSettingsClick()
+            },
                 onLoggingClick = {
                     coroutineScope.launch {
                         drawerState.close()
@@ -389,8 +386,7 @@ fun FeedsScreenContent(
                 isProxyEnabled = isProxyEnabled,
                 onProxyToggle = onProxyToggle
             )
-        }
-    ) {
+        }) {
         Scaffold(
             modifier = modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
             floatingActionButton = {
@@ -433,8 +429,7 @@ fun FeedsScreenContent(
                                         }
                                     }
                                 }
-                            }
-                        ) {
+                            }) {
                             Icon(
                                 imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
                                 contentDescription = if (isPlaying) "暂停播客" else "播放播客"
@@ -448,200 +443,192 @@ fun FeedsScreenContent(
                     // 现代化的顶部应用栏
                     CenterAlignedTopAppBar(
                         title = {
-                            if (isSearchActive) {
-                                Box {
-                                    TextField(
-                                        value = searchText,
-                                        onValueChange = {
-                                            searchText = it
-                                            showSearchHistory =
-                                                it.isNotEmpty() && searchHistory.isNotEmpty()
-                                        },
-                                        placeholder = { Text("语义搜索") },
+                        if (isSearchActive) {
+                            Box {
+                                TextField(
+                                    value = searchText,
+                                    onValueChange = {
+                                        searchText = it
+                                        showSearchHistory =
+                                            it.isNotEmpty() && searchHistory.isNotEmpty()
+                                    },
+                                    placeholder = { Text("语义搜索") },
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .focusRequester(focusRequester),
+                                    singleLine = true,
+                                    colors = TextFieldDefaults.colors(
+                                        focusedContainerColor = Color.Transparent,
+                                        unfocusedContainerColor = Color.Transparent,
+                                        disabledContainerColor = Color.Transparent,
+                                        focusedIndicatorColor = Color.Transparent,
+                                        unfocusedIndicatorColor = Color.Transparent,
+                                    ),
+                                    textStyle = MaterialTheme.typography.bodyLarge,
+                                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                                    keyboardActions = KeyboardActions(onSearch = {
+                                        onSearchQueryChanged(searchText)
+                                        showSearchHistory = false
+                                        keyboardController?.hide()
+                                    })
+                                )
+
+                                // 搜索历史记录下拉菜单
+                                DropdownMenu(
+                                    expanded = showSearchHistory && searchHistory.isNotEmpty(),
+                                    onDismissRequest = { showSearchHistory = false },
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .focusable(false), // 防止抢夺焦点
+                                    properties = androidx.compose.ui.window.PopupProperties(
+                                        focusable = false, // 禁止焦点抢夺
+                                        dismissOnBackPress = true, dismissOnClickOutside = true
+                                    )
+                                ) {
+                                    // 标题行
+                                    Row(
                                         modifier = Modifier
                                             .fillMaxWidth()
-                                            .focusRequester(focusRequester),
-                                        singleLine = true,
-                                        colors = TextFieldDefaults.colors(
-                                            focusedContainerColor = Color.Transparent,
-                                            unfocusedContainerColor = Color.Transparent,
-                                            disabledContainerColor = Color.Transparent,
-                                            focusedIndicatorColor = Color.Transparent,
-                                            unfocusedIndicatorColor = Color.Transparent,
-                                        ),
-                                        textStyle = MaterialTheme.typography.bodyLarge,
-                                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                                        keyboardActions = KeyboardActions(onSearch = {
-                                            onSearchQueryChanged(searchText)
+                                            .padding(horizontal = 16.dp, vertical = 8.dp),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text(
+                                            text = "搜索历史",
+                                            style = MaterialTheme.typography.labelLarge.copy(
+                                                fontWeight = FontWeight.Medium
+                                            ),
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+
+                                        // 清除历史按钮
+                                        IconButton(
+                                            onClick = {
+                                                onClearSearchHistory()
+                                                showSearchHistory = false
+                                            }, modifier = Modifier.size(24.dp)
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.Close,
+                                                contentDescription = "清除历史记录",
+                                                modifier = Modifier.size(16.dp),
+                                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        }
+                                    }
+
+                                    // 历史记录列表
+                                    searchHistory.forEach { historyItem ->
+                                        DropdownMenuItem(text = {
+                                            Row(
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Default.AccessTime,
+                                                    contentDescription = "历史记录",
+                                                    modifier = Modifier.size(16.dp),
+                                                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(
+                                                        alpha = 0.6f
+                                                    )
+                                                )
+
+                                                Spacer(modifier = Modifier.width(12.dp))
+
+                                                Text(
+                                                    text = historyItem,
+                                                    style = MaterialTheme.typography.bodyMedium,
+                                                    color = MaterialTheme.colorScheme.onSurface,
+                                                    maxLines = 1,
+                                                    overflow = TextOverflow.Ellipsis
+                                                )
+                                            }
+                                        }, onClick = {
+                                            searchText = historyItem
+                                            onSearchHistoryClick(historyItem)
                                             showSearchHistory = false
                                             keyboardController?.hide()
                                         })
-                                    )
-
-                                    // 搜索历史记录下拉菜单
-                                    DropdownMenu(
-                                        expanded = showSearchHistory && searchHistory.isNotEmpty(),
-                                        onDismissRequest = { showSearchHistory = false },
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .focusable(false), // 防止抢夺焦点
-                                        properties = androidx.compose.ui.window.PopupProperties(
-                                            focusable = false, // 禁止焦点抢夺
-                                            dismissOnBackPress = true,
-                                            dismissOnClickOutside = true
-                                        )
-                                    ) {
-                                        // 标题行
-                                        Row(
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .padding(horizontal = 16.dp, vertical = 8.dp),
-                                            horizontalArrangement = Arrangement.SpaceBetween,
-                                            verticalAlignment = Alignment.CenterVertically
-                                        ) {
-                                            Text(
-                                                text = "搜索历史",
-                                                style = MaterialTheme.typography.labelLarge.copy(
-                                                    fontWeight = FontWeight.Medium
-                                                ),
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                                            )
-
-                                            // 清除历史按钮
-                                            IconButton(
-                                                onClick = {
-                                                    onClearSearchHistory()
-                                                    showSearchHistory = false
-                                                },
-                                                modifier = Modifier.size(24.dp)
-                                            ) {
-                                                Icon(
-                                                    imageVector = Icons.Default.Close,
-                                                    contentDescription = "清除历史记录",
-                                                    modifier = Modifier.size(16.dp),
-                                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                                                )
-                                            }
-                                        }
-
-                                        // 历史记录列表
-                                        searchHistory.forEach { historyItem ->
-                                            DropdownMenuItem(
-                                                text = {
-                                                    Row(
-                                                        verticalAlignment = Alignment.CenterVertically
-                                                    ) {
-                                                        Icon(
-                                                            imageVector = Icons.Default.AccessTime,
-                                                            contentDescription = "历史记录",
-                                                            modifier = Modifier.size(16.dp),
-                                                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(
-                                                                alpha = 0.6f
-                                                            )
-                                                        )
-
-                                                        Spacer(modifier = Modifier.width(12.dp))
-
-                                                        Text(
-                                                            text = historyItem,
-                                                            style = MaterialTheme.typography.bodyMedium,
-                                                            color = MaterialTheme.colorScheme.onSurface,
-                                                            maxLines = 1,
-                                                            overflow = TextOverflow.Ellipsis
-                                                        )
-                                                    }
-                                                },
-                                                onClick = {
-                                                    searchText = historyItem
-                                                    onSearchHistoryClick(historyItem)
-                                                    showSearchHistory = false
-                                                    keyboardController?.hide()
-                                                }
-                                            )
-                                        }
                                     }
                                 }
-                                LaunchedEffect(Unit) {
-                                    focusRequester.requestFocus()
-                                    // 延迟显示搜索历史，确保键盘先弹出
-                                    kotlinx.coroutines.delay(200)
-                                    if (searchText.isEmpty() && searchHistory.isNotEmpty()) {
-                                        showSearchHistory = true
-                                        // 搜索历史显示后重新聚焦到搜索框
-                                        kotlinx.coroutines.delay(50)
-                                        focusRequester.requestFocus()
-                                    }
-                                }
-                            } else {
-                                Text(
-                                    text = "Zenfeed",
-                                    style = MaterialTheme.typography.headlineMedium.copy(
-                                        fontWeight = FontWeight.ExtraBold,
-                                        letterSpacing = 1.sp
-                                    ),
-                                    color = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.clickable(
-                                        indication = null,
-                                        interactionSource = remember { MutableInteractionSource() }
-                                    ) {
-                                        val currentTime = System.currentTimeMillis()
-                                        if (currentTime - lastClickTime <= doubleTapThreshold) {
-                                            // 双击事件：滚动到顶部 - 智能选择滚动方式
-                                            coroutineScope.launch {
-                                                try {
-                                                    // 根据 pagerState 获取当前可见的列表状态并滚动
-                                                    val categoryToScroll =
-                                                        pagerCategories.getOrNull(pagerState.currentPage)
-                                                    val stateToScroll =
-                                                        categoryToScroll?.let { listStates[it] }
-                                                    val currentIndex =
-                                                        stateToScroll?.firstVisibleItemIndex ?: 0
-                                                    val animationThreshold = 20 // 跳转距离阈值
-
-                                                    if (currentIndex <= animationThreshold) {
-                                                        // 距离较短，使用动画滚动提供流畅体验
-                                                        Log.d(
-                                                            "FeedsScreen",
-                                                            "双击标题滚动距离: $currentIndex，使用动画滚动"
-                                                        )
-                                                        stateToScroll?.animateScrollToItem(0)
-                                                    } else {
-                                                        // 距离较长，直接跳转提升性能
-                                                        Log.d(
-                                                            "FeedsScreen",
-                                                            "双击标题滚动距离: $currentIndex，直接跳转"
-                                                        )
-                                                        stateToScroll?.scrollToItem(0)
-                                                    }
-                                                } catch (e: kotlinx.coroutines.CancellationException) {
-                                                    // 检查是否是LeftCompositionCancellationException
-                                                    if (e.message?.contains("left the composition") == true) {
-                                                        Log.w(
-                                                            "FeedsScreen",
-                                                            "组合已离开，双击标题滚动操作被取消",
-                                                            e
-                                                        )
-                                                        // 不重新抛出LeftCompositionCancellationException
-                                                    } else {
-                                                        Log.w(
-                                                            "FeedsScreen",
-                                                            "协程被取消，双击标题滚动操作终止",
-                                                            e
-                                                        )
-                                                        throw e
-                                                    }
-                                                } catch (e: Exception) {
-                                                    Log.e("FeedsScreen", "双击标题滚动失败", e)
-                                                }
-                                            }
-                                            lastClickTime = 0L // 重置时间避免三击
-                                        } else {
-                                            lastClickTime = currentTime
-                                        }
-                                    }
-                                )
                             }
-                        },
+                            LaunchedEffect(Unit) {
+                                focusRequester.requestFocus()
+                                // 延迟显示搜索历史，确保键盘先弹出
+                                delay(200)
+                                if (searchText.isEmpty() && searchHistory.isNotEmpty()) {
+                                    showSearchHistory = true
+                                    // 搜索历史显示后重新聚焦到搜索框
+                                    delay(50)
+                                    focusRequester.requestFocus()
+                                }
+                            }
+                        } else {
+                            Text(
+                                text = "Zenfeed",
+                                style = MaterialTheme.typography.headlineMedium.copy(
+                                    fontWeight = FontWeight.ExtraBold, letterSpacing = 1.sp
+                                ),
+                                color = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.clickable(
+                                    indication = null,
+                                    interactionSource = remember { MutableInteractionSource() }) {
+                                    val currentTime = System.currentTimeMillis()
+                                    if (currentTime - lastClickTime <= doubleTapThreshold) {
+                                        // 双击事件：滚动到顶部 - 智能选择滚动方式
+                                        coroutineScope.launch {
+                                            try {
+                                                // 根据 pagerState 获取当前可见的列表状态并滚动
+                                                val categoryToScroll =
+                                                    pagerCategories.getOrNull(pagerState.currentPage)
+                                                val stateToScroll =
+                                                    categoryToScroll?.let { listStates[it] }
+                                                val currentIndex =
+                                                    stateToScroll?.firstVisibleItemIndex ?: 0
+                                                val animationThreshold = 20 // 跳转距离阈值
+
+                                                if (currentIndex <= animationThreshold) {
+                                                    // 距离较短，使用动画滚动提供流畅体验
+                                                    Log.d(
+                                                        "FeedsScreen",
+                                                        "双击标题滚动距离: $currentIndex，使用动画滚动"
+                                                    )
+                                                    stateToScroll?.animateScrollToItem(0)
+                                                } else {
+                                                    // 距离较长，直接跳转提升性能
+                                                    Log.d(
+                                                        "FeedsScreen",
+                                                        "双击标题滚动距离: $currentIndex，直接跳转"
+                                                    )
+                                                    stateToScroll?.scrollToItem(0)
+                                                }
+                                            } catch (e: CancellationException) {
+                                                // 检查是否是LeftCompositionCancellationException
+                                                if (e.message?.contains("left the composition") == true) {
+                                                    Log.w(
+                                                        "FeedsScreen",
+                                                        "组合已离开，双击标题滚动操作被取消",
+                                                        e
+                                                    )
+                                                    // 不重新抛出LeftCompositionCancellationException
+                                                } else {
+                                                    Log.w(
+                                                        "FeedsScreen",
+                                                        "协程被取消，双击标题滚动操作终止",
+                                                        e
+                                                    )
+                                                    throw e
+                                                }
+                                            } catch (e: Exception) {
+                                                Log.e("FeedsScreen", "双击标题滚动失败", e)
+                                            }
+                                        }
+                                        lastClickTime = 0L // 重置时间避免三击
+                                    } else {
+                                        lastClickTime = currentTime
+                                    }
+                                })
+                        }
+                    },
                         navigationIcon = {
                             IconButton(onClick = { coroutineScope.launch { drawerState.open() } }) {
                                 Icon(
@@ -690,7 +677,7 @@ fun FeedsScreenContent(
                                     searchQueryBeforeSearch = searchQuery
                                     // 触发键盘弹出
                                     coroutineScope.launch {
-                                        kotlinx.coroutines.delay(300) // 等待搜索框完全激活
+                                        delay(300) // 等待搜索框完全激活
                                         focusRequester.requestFocus()
                                         keyboardController?.show()
                                     }
@@ -726,8 +713,7 @@ fun FeedsScreenContent(
                 when (feedsUiState) {
                     is FeedsUiState.Loading -> ModernLoadingScreen(Modifier.fillMaxSize())
                     is FeedsUiState.Error -> ModernErrorScreen(
-                        modifier = Modifier.fillMaxSize(),
-                        onRetry = onRefresh
+                        modifier = Modifier.fillMaxSize(), onRetry = onRefresh
                     )
 
                     is FeedsUiState.Success -> {
@@ -786,16 +772,12 @@ fun FeedsScreenContent(
                                         // 检查是否是LeftCompositionCancellationException
                                         if (e.message?.contains("left the composition") == true) {
                                             Log.w(
-                                                "FeedsScreen",
-                                                "组合已离开，双击Tab滚动操作被取消",
-                                                e
+                                                "FeedsScreen", "组合已离开，双击Tab滚动操作被取消", e
                                             )
                                             // 不重新抛出LeftCompositionCancellationException
                                         } else {
                                             Log.w(
-                                                "FeedsScreen",
-                                                "协程被取消，双击Tab滚动操作终止",
-                                                e
+                                                "FeedsScreen", "协程被取消，双击Tab滚动操作终止", e
                                             )
                                             throw e
                                         }
@@ -837,7 +819,7 @@ fun FeedsScreenContent(
                                 )
 
                                 // 等待UI完全加载
-                                kotlinx.coroutines.delay(200)
+                                delay(200)
 
                                 // 确保切换到正确的分类
                                 if (targetCategory != selectedCategory) {
@@ -847,10 +829,10 @@ fun FeedsScreenContent(
                                     )
                                     onCategorySelected(targetCategory)
                                     // 等待分类切换和Pager动画完成
-                                    kotlinx.coroutines.delay(800)
+                                    delay(800)
                                 } else {
                                     // 即使在同一分类，也等待一下确保UI稳定
-                                    kotlinx.coroutines.delay(300)
+                                    delay(300)
                                 }
 
                                 // 滚动到指定文章
@@ -892,7 +874,7 @@ fun FeedsScreenContent(
                                                 listState.scrollToItem(targetIndex)
                                             }
                                             Log.d("FeedsScreen", "滚动完成")
-                                        } catch (e: kotlinx.coroutines.CancellationException) {
+                                        } catch (e: CancellationException) {
                                             // 检查是否是LeftCompositionCancellationException
                                             if (e.message?.contains("left the composition") == true) {
                                                 Log.w("FeedsScreen", "组合已离开，滚动操作被取消", e)
@@ -936,9 +918,7 @@ fun FeedsScreenContent(
 
                                 // 显示toast提醒
                                 Toast.makeText(
-                                    context,
-                                    "已更新 $newContentCount 条新内容",
-                                    Toast.LENGTH_SHORT
+                                    context, "已更新 $newContentCount 条新内容", Toast.LENGTH_SHORT
                                 ).show()
 
                                 // 等待一下确保UI稳定，然后滚动到当前分类的列表顶部
@@ -972,26 +952,22 @@ fun FeedsScreenContent(
 
                                 // 显示toast提醒
                                 Toast.makeText(
-                                    context,
-                                    "没有获取到新的内容",
-                                    Toast.LENGTH_SHORT
+                                    context, "没有获取到新的内容", Toast.LENGTH_SHORT
                                 ).show()
 
                                 // 通知ViewModel清除状态
                                 onNoNewContentHandled()
                             }
                         }
-                        
+
                         // 监听网络请求错误消息状态并显示toast提醒
                         LaunchedEffect(errorMessage) {
                             if (errorMessage.isNotEmpty()) {
                                 // 显示错误toast提醒
                                 Toast.makeText(
-                                    context,
-                                    errorMessage,
-                                    Toast.LENGTH_SHORT
+                                    context, errorMessage, Toast.LENGTH_SHORT
                                 ).show()
-                                
+
                                 // 清除状态，避免重复显示
                                 onErrorMessageHandled()
                             }
@@ -999,17 +975,14 @@ fun FeedsScreenContent(
 
                         // 内容区域
                         HorizontalPager(
-                            state = pagerState,
-                            modifier = Modifier.fillMaxSize(),
-                            key = { index ->
+                            state = pagerState, modifier = Modifier.fillMaxSize(), key = { index ->
                                 // 添加边界检查，防止索引越界
                                 if (index < allCategories.size) {
                                     allCategories[index]
                                 } else {
                                     "unknown_$index"
                                 }
-                            }
-                        ) { page ->
+                            }) { page ->
                             // 添加边界检查，防止索引越界
                             val category = if (page < allCategories.size) {
                                 allCategories[page]
@@ -1028,8 +1001,7 @@ fun FeedsScreenContent(
                             // 检测是否在列表顶部
                             val isAtTop by remember {
                                 derivedStateOf {
-                                    listState.firstVisibleItemIndex == 0 &&
-                                            listState.firstVisibleItemScrollOffset == 0
+                                    listState.firstVisibleItemIndex == 0 && listState.firstVisibleItemScrollOffset == 0
                                 }
                             }
 
@@ -1056,8 +1028,7 @@ fun FeedsScreenContent(
                                         items(
                                             items = feedsForCategory,
                                             key = { feed -> "${feed.time}-${feed.labels.title?.hashCode() ?: 0}" }, // 确保 key 唯一性
-                                            contentType = { "FeedItem" }
-                                        ) { feed ->
+                                            contentType = { "FeedItem" }) { feed ->
                                             // 优化播客状态计算 - 减少重复计算
                                             val isCurrentlyPlaying = remember(
                                                 feed.labels.podcastUrl,
@@ -1068,9 +1039,7 @@ fun FeedsScreenContent(
                                                     false
                                                 } else {
                                                     playlistInfo?.let { info ->
-                                                        info.currentIndex >= 0 &&
-                                                                info.currentIndex < currentPlaylist.size &&
-                                                                currentPlaylist[info.currentIndex].labels.podcastUrl == feed.labels.podcastUrl
+                                                        info.currentIndex >= 0 && info.currentIndex < currentPlaylist.size && currentPlaylist[info.currentIndex].labels.podcastUrl == feed.labels.podcastUrl
                                                     } == true
                                                 }
                                             }
@@ -1090,8 +1059,7 @@ fun FeedsScreenContent(
                                                     { playerViewModel?.togglePlayPause() }
                                                 } else null,
                                                 isCurrentlyPlaying = isCurrentlyPlaying,
-                                                isPlaying = isPlaying
-                                            )
+                                                isPlaying = isPlaying)
                                         }
                                     }
                                 }
@@ -1124,7 +1092,7 @@ fun FeedsScreenContent(
                                                         )
                                                         listState.scrollToItem(lastReadIndex)
                                                     }
-                                                } catch (e: kotlinx.coroutines.CancellationException) {
+                                                } catch (e: CancellationException) {
                                                     // 检查是否是LeftCompositionCancellationException
                                                     if (e.message?.contains("left the composition") == true) {
                                                         Log.w(
@@ -1152,7 +1120,7 @@ fun FeedsScreenContent(
                                     )
                                 }
                             }
-                            
+
                             // 搜索阈值设置对话框
                             if (showThresholdDialog) {
                                 AlertDialog(
@@ -1184,7 +1152,10 @@ fun FeedsScreenContent(
                                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                                 )
                                                 Text(
-                                                    text = String.format("%.2f", currentEditThreshold),
+                                                    text = String.format(
+                                                        "%.2f",
+                                                        currentEditThreshold
+                                                    ),
                                                     style = MaterialTheme.typography.bodyMedium,
                                                     fontWeight = FontWeight.Medium,
                                                     color = MaterialTheme.colorScheme.primary
@@ -1195,9 +1166,9 @@ fun FeedsScreenContent(
                                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                                 )
                                             }
-                                            
+
                                             Spacer(modifier = Modifier.padding(vertical = 16.dp))
-                                            
+
                                             // 搜索结果限制设置
                                             Text(
                                                 text = "最大结果数量：1 - 500\n限制搜索返回的结果数量\n默认值：500",
@@ -1241,19 +1212,16 @@ fun FeedsScreenContent(
                                                 onSearchThresholdChanged(currentEditThreshold)
                                                 onSearchLimitChanged(currentEditLimit)
                                                 showThresholdDialog = false
-                                            }
-                                        ) {
+                                            }) {
                                             Text("确定")
                                         }
                                     },
                                     dismissButton = {
                                         TextButton(
-                                            onClick = { showThresholdDialog = false }
-                                        ) {
+                                            onClick = { showThresholdDialog = false }) {
                                             Text("取消")
                                         }
-                                    }
-                                )
+                                    })
                             }
                         }
                     }
@@ -1263,69 +1231,3 @@ fun FeedsScreenContent(
     }
 }
 
-@Preview(showBackground = true)
-@Composable
-fun FeedsScreenSuccessPreview() {
-    MaterialTheme {
-        FeedsScreenContent(
-            feedsUiState = FeedsUiState.Success(
-                feeds = List(8) {
-                    Feed(
-                        labels = Labels(
-                            title = "现代化标题 $it - 展示新的设计风格",
-                            summary = "这是第 $it 条内容的现代化摘要信息，采用了全新的视觉设计和排版风格，提供更好的用户体验。",
-                            source = "精选来源 $it",
-                            category = if (it % 3 == 0) "科技" else if (it % 3 == 1) "新闻" else "生活",
-                            content = "",
-                            link = "",
-                            podcastUrl = "",
-                            pubTime = "",
-                            summaryHtmlSnippet = "",
-                            tags = when (it % 3) {
-                                0 -> "科技,AI,创新"
-                                1 -> "新闻,时事,热点"
-                                else -> "生活,健康,娱乐"
-                            },
-                            type = ""
-                        ),
-                        time = "2023-10-27T12:00:00Z",
-                        isRead = it % 3 == 0 // 每三个中有一个是已读状态，用于展示淡化效果
-                    )
-                },
-                categories = listOf("科技", "新闻", "生活")
-            ),
-            selectedCategory = "",
-            selectedTimeRangeHours = 24,
-            isRefreshing = false,
-            isBackgroundRefreshing = false,
-            shouldScrollToTop = false,
-            newContentCount = 0,
-            shouldShowNoNewContent = false,
-            errorMessage = "",
-            onFeedClick = {},
-            onCategorySelected = {},
-            onRefresh = {},
-            onScrollToTopHandled = {},
-            onNoNewContentHandled = {},
-            onErrorMessageHandled = {},
-            onSettingsClick = {},
-            onLoggingClick = {},
-            onAboutClick = {},
-            onPlayPodcastList = null,
-            playerViewModel = null,
-            listStates = remember { mutableMapOf() },
-            scrollPositions = emptyMap(),
-            sharedViewModel = null,
-            onTimeRangeSelected = {},
-            searchQuery = "",
-            onSearchQueryChanged = {},
-            searchHistory = listOf("示例搜索1", "示例搜索2", "示例搜索3"),
-            onSearchHistoryClick = {},
-            onClearSearchHistory = {},
-            searchThreshold = 0.55f,
-            onSearchThresholdChanged = {},
-            searchLimit = 500,
-            onSearchLimitChanged = {}
-        )
-    }
-}
