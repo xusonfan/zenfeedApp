@@ -36,7 +36,7 @@ class FeedRepository(private val context: Context) {
      * 获取Feed列表
      * @return Feed响应结果
      */
-    suspend fun getFeeds(useCache: Boolean = true, hours: Int = 24, query: String = ""): Result<FeedResponse> {
+    suspend fun getFeeds(useCache: Boolean = true, hours: Int = 24, query: String = "", threshold: Float? = null): Result<FeedResponse> {
         return try {
             // 如果允许使用缓存且缓存有效，则返回缓存数据
             if (useCache && isCacheValid()) {
@@ -64,6 +64,7 @@ class FeedRepository(private val context: Context) {
                 end = dateFormat.format(now),
                 limit = 500,
                 query = query,
+                threshold = threshold,
                 summarize = false
             )
             

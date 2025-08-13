@@ -3,6 +3,7 @@ package com.ddyy.zenfeed.ui.feeds
 import android.app.Application
 import android.util.Log
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
@@ -75,6 +76,9 @@ class FeedsViewModel(application: Application) : AndroidViewModel(application) {
     var searchHistory: List<String> by mutableStateOf(emptyList())
         private set
 
+    // 搜索阈值，用于控制语义搜索的相关性要求
+    var searchThreshold: Float by mutableFloatStateOf(0.55f)
+
     init {
         loadReadFeedIds()
         loadSearchHistory() // 加载搜索历史
@@ -120,7 +124,7 @@ class FeedsViewModel(application: Application) : AndroidViewModel(application) {
                 isBackgroundRefreshing = true
             }
 
-            val result = feedRepository.getFeeds(useCache = !forceRefresh, hours = selectedTimeRangeHours, query = searchQuery)
+            val result = feedRepository.getFeeds(useCache = !forceRefresh, hours = selectedTimeRangeHours, query = searchQuery, threshold = if (searchQuery.isNotEmpty()) searchThreshold else null)
             if (result.isSuccess) {
                 val newFeeds = result.getOrNull()?.feeds ?: emptyList()
                 if (newFeeds != allFeeds || forceRefresh) { // 数据不同或强制刷新时更新
@@ -146,7 +150,7 @@ class FeedsViewModel(application: Application) : AndroidViewModel(application) {
     fun refreshFeeds() {
         viewModelScope.launch {
             isRefreshing = true
-            val result = feedRepository.getFeeds(useCache = false, hours = selectedTimeRangeHours, query = searchQuery) // 强制从网络获取
+            val result = feedRepository.getFeeds(useCache = false, hours = selectedTimeRangeHours, query = searchQuery, threshold = if (searchQuery.isNotEmpty()) searchThreshold else null) // 强制从网络获取
             if (result.isSuccess) {
                 val newFeeds = result.getOrNull()?.feeds ?: emptyList()
 
@@ -206,9 +210,10 @@ class FeedsViewModel(application: Application) : AndroidViewModel(application) {
             searchQuery = query
             addSearchHistory(query) // 添加到历史记录
             getFeeds(forceRefresh = true)
-            Log.d("FeedsViewModel", "开始搜索: $query")
+            Log.d("FeedsViewModel", "开始搜索: $query, 阈值: $searchThreshold")
         }
     }
+
 
     /**
      * 添加到搜索历史

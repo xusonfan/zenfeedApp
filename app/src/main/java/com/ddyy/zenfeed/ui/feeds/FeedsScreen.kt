@@ -33,6 +33,8 @@ import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Tune
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.DropdownMenu
@@ -45,7 +47,9 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.TopAppBarDefaults
@@ -168,6 +172,10 @@ fun FeedsScreen(
         searchHistory = feedsViewModel.searchHistory,
         onSearchHistoryClick = { historyQuery -> feedsViewModel.searchFeeds(historyQuery) },
         onClearSearchHistory = { feedsViewModel.clearSearchHistory() },
+        searchThreshold = feedsViewModel.searchThreshold,
+        onSearchThresholdChanged = { threshold ->
+            feedsViewModel.searchThreshold = threshold
+        },
         modifier = modifier
     )
 }
@@ -206,7 +214,9 @@ fun FeedsScreenContent(
     onSearchQueryChanged: (String) -> Unit,
     searchHistory: List<String> = emptyList(),
     onSearchHistoryClick: (String) -> Unit = {},
-    onClearSearchHistory: () -> Unit = {}
+    onClearSearchHistory: () -> Unit = {},
+    searchThreshold: Float,
+    onSearchThresholdChanged: (Float) -> Unit
 ) {
     val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
     val coroutineScope = rememberCoroutineScope()
@@ -221,6 +231,12 @@ fun FeedsScreenContent(
 
     // 搜索前的查询状态，用于退出搜索时恢复
     var searchQueryBeforeSearch by remember { mutableStateOf("") }
+    
+    // 阈值设置对话框显示状态
+    var showThresholdDialog by remember { mutableStateOf(false) }
+    
+    // 当前编辑的阈值
+    var currentEditThreshold by remember { mutableStateOf(searchThreshold) }
 
     // 抽屉状态管理
     val drawerState = rememberDrawerState(DrawerValue.Closed)
@@ -628,6 +644,14 @@ fun FeedsScreenContent(
                         },
                         actions = {
                             if (isSearchActive) {
+                                // 阈值调整按钮（放在叉号左边）
+                                IconButton(onClick = {
+                                    currentEditThreshold = searchThreshold
+                                    showThresholdDialog = true
+                                }) {
+                                    Icon(Icons.Default.Tune, contentDescription = "调整搜索阈值")
+                                }
+                                // 关闭按钮
                                 IconButton(onClick = {
                                     if (searchText.isNotEmpty()) {
                                         // 只清空输入框，不触发搜索重载
@@ -1103,6 +1127,69 @@ fun FeedsScreenContent(
                                     )
                                 }
                             }
+                            
+                            // 搜索阈值设置对话框
+                            if (showThresholdDialog) {
+                                AlertDialog(
+                                    onDismissRequest = { showThresholdDialog = false },
+                                    title = { Text("设置搜索阈值") },
+                                    text = {
+                                        Column {
+                                            Text(
+                                                text = "阈值范围：0.0 - 1.0\n数值越高，搜索结果越精确\n默认值：0.55",
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                            Spacer(modifier = Modifier.padding(vertical = 8.dp))
+                                            Slider(
+                                                value = currentEditThreshold,
+                                                onValueChange = { currentEditThreshold = it },
+                                                valueRange = 0f..1f,
+                                                steps = 19, // 20个间隔，步长0.05
+                                                modifier = Modifier.fillMaxWidth()
+                                            )
+                                            Row(
+                                                modifier = Modifier.fillMaxWidth(),
+                                                horizontalArrangement = Arrangement.SpaceBetween
+                                            ) {
+                                                Text(
+                                                    text = "0.0",
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                )
+                                                Text(
+                                                    text = String.format("%.2f", currentEditThreshold),
+                                                    style = MaterialTheme.typography.bodyMedium,
+                                                    fontWeight = FontWeight.Medium,
+                                                    color = MaterialTheme.colorScheme.primary
+                                                )
+                                                Text(
+                                                    text = "1.0",
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                )
+                                            }
+                                        }
+                                    },
+                                    confirmButton = {
+                                        TextButton(
+                                            onClick = {
+                                                onSearchThresholdChanged(currentEditThreshold)
+                                                showThresholdDialog = false
+                                            }
+                                        ) {
+                                            Text("确定")
+                                        }
+                                    },
+                                    dismissButton = {
+                                        TextButton(
+                                            onClick = { showThresholdDialog = false }
+                                        ) {
+                                            Text("取消")
+                                        }
+                                    }
+                                )
+                            }
                         }
                     }
                 }
@@ -1167,7 +1254,9 @@ fun FeedsScreenSuccessPreview() {
             onSearchQueryChanged = {},
             searchHistory = listOf("示例搜索1", "示例搜索2", "示例搜索3"),
             onSearchHistoryClick = {},
-            onClearSearchHistory = {}
+            onClearSearchHistory = {},
+            searchThreshold = 0.55f,
+            onSearchThresholdChanged = {}
         )
     }
 }
