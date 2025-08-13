@@ -86,7 +86,6 @@ import com.ddyy.zenfeed.data.Feed
 import com.ddyy.zenfeed.data.Labels
 import com.ddyy.zenfeed.extension.getLastReadFeedIndex
 import com.ddyy.zenfeed.extension.groupByCategory
-import com.ddyy.zenfeed.extension.hasValidPodcast
 import com.ddyy.zenfeed.ui.feeds.components.common.FeedItem
 import com.ddyy.zenfeed.ui.feeds.components.list.JumpToLastReadButton
 import com.ddyy.zenfeed.ui.feeds.components.list.ModernErrorScreen
@@ -401,12 +400,8 @@ fun FeedsScreenContent(
                         }
                     }
 
-                    // 如果有当前播放的或者列表中有播客，显示悬浮按钮
-                    val hasValidPodcast =
-                        currentPlayingFeed?.labels?.podcastUrl?.isNotBlank() == true ||
-                                (feedsUiState as? FeedsUiState.Success)?.feeds?.hasValidPodcast() == true
-
-                    if (hasValidPodcast) {
+                    // 只有播客正在播放时才显示悬浮按钮
+                    if (isPlaying && currentPlayingFeed?.labels?.podcastUrl?.isNotBlank() == true) {
                         FloatingActionButton(
                             onClick = {
                                 playerViewModel.playerService?.let { service ->
