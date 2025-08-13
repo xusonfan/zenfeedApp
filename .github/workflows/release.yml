@@ -12,6 +12,8 @@ jobs:
     # 为工作流授予向仓库写入内容的权限，以便能推送 Git 标签
     permissions:
       contents: write
+    env:
+      TZ: Asia/Shanghai # 设置时区为东八区
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
