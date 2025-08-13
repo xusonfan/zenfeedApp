@@ -39,8 +39,6 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.OpenInBrowser
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Shuffle
-import androidx.compose.material.icons.filled.ShuffleOn
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -68,13 +66,27 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.window.Dialog
 import androidx.core.graphics.toColorInt
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.ddyy.zenfeed.data.Feed
 import com.ddyy.zenfeed.data.PlaylistInfo
+import com.ddyy.zenfeed.extension.generateTagColors
+import com.ddyy.zenfeed.extension.getCardContainerColor
+import com.ddyy.zenfeed.extension.getCurrentPlayingIcon
+import com.ddyy.zenfeed.extension.getFontWeight
+import com.ddyy.zenfeed.extension.getRepeatModeIcon
+import com.ddyy.zenfeed.extension.getShuffleModeIcon
+import com.ddyy.zenfeed.extension.getTagFontSize
+import com.ddyy.zenfeed.extension.getTagTextAlpha
+import com.ddyy.zenfeed.extension.getTextColor
+import com.ddyy.zenfeed.extension.getThemeBackgroundColor
+import com.ddyy.zenfeed.extension.getThemeColorByStatus
+import com.ddyy.zenfeed.extension.orDefaultSource
+import com.ddyy.zenfeed.extension.orDefaultTitle
+import com.ddyy.zenfeed.extension.splitTags
+import com.ddyy.zenfeed.extension.toThemedHtml
 import com.ddyy.zenfeed.ui.player.PlayerViewModel
 import kotlin.math.min
 
@@ -194,9 +206,9 @@ fun FeedDetailScreen(
                         // 根据滚动进度在来源和标题之间过渡
                         Text(
                             text = if (scrollProgress < 0.5f) {
-                                currentFeed.labels.source ?: "未知来源"
+                                currentFeed.labels.source.orDefaultSource()
                             } else {
-                                currentFeed.labels.title ?: "未知标题"
+                                currentFeed.labels.title.orDefaultTitle()
                             },
                             style = MaterialTheme.typography.titleMedium,
                             maxLines = 1,
@@ -220,7 +232,7 @@ fun FeedDetailScreen(
                 actions = {
                     IconButton(
                         onClick = {
-                            onOpenWebView(currentFeed.labels.link ?: "", currentFeed.labels.title ?: "未知标题")
+                            onOpenWebView(currentFeed.labels.link ?: "", currentFeed.labels.title.orDefaultTitle())
                         }
                     ) {
                         Icon(
@@ -326,13 +338,9 @@ fun PlaylistDialog(
                                     .size(40.dp)
                             ) {
                                 Icon(
-                                    imageVector = Icons.AutoMirrored.Filled.PlaylistPlay,
+                                    imageVector = getRepeatModeIcon(info.isRepeat),
                                     contentDescription = "循环播放",
-                                    tint = if (info.isRepeat) {
-                                        MaterialTheme.colorScheme.primary
-                                    } else {
-                                        MaterialTheme.colorScheme.onSurfaceVariant
-                                    },
+                                    tint = getThemeColorByStatus(info.isRepeat),
                                     modifier = Modifier.size(20.dp)
                                 )
                             }
@@ -341,11 +349,7 @@ fun PlaylistDialog(
                             Text(
                                 text = if (info.isRepeat) "循环" else "顺序",
                                 style = MaterialTheme.typography.bodySmall,
-                                color = if (info.isRepeat) {
-                                    MaterialTheme.colorScheme.primary
-                                } else {
-                                    MaterialTheme.colorScheme.onSurfaceVariant
-                                }
+                                color = getThemeColorByStatus(info.isRepeat)
                             )
                             
                             Spacer(modifier = Modifier.width(24.dp))
@@ -357,13 +361,9 @@ fun PlaylistDialog(
                                     .size(40.dp)
                             ) {
                                 Icon(
-                                    imageVector = if (info.isShuffle) Icons.Default.ShuffleOn else Icons.Default.Shuffle,
+                                    imageVector = getShuffleModeIcon(info.isShuffle),
                                     contentDescription = "乱序播放",
-                                    tint = if (info.isShuffle) {
-                                        MaterialTheme.colorScheme.primary
-                                    } else {
-                                        MaterialTheme.colorScheme.onSurfaceVariant
-                                    },
+                                    tint = getThemeColorByStatus(info.isShuffle),
                                     modifier = Modifier.size(20.dp)
                                 )
                             }
@@ -372,11 +372,7 @@ fun PlaylistDialog(
                             Text(
                                 text = if (info.isShuffle) "乱序" else "顺序",
                                 style = MaterialTheme.typography.bodySmall,
-                                color = if (info.isShuffle) {
-                                    MaterialTheme.colorScheme.primary
-                                } else {
-                                    MaterialTheme.colorScheme.onSurfaceVariant
-                                }
+                                color = getThemeColorByStatus(info.isShuffle)
                             )
                         }
                         
@@ -402,11 +398,7 @@ fun PlaylistDialog(
                                     onDismiss()
                                 },
                             colors = CardDefaults.cardColors(
-                                containerColor = if (isCurrentPlaying) {
-                                    MaterialTheme.colorScheme.primaryContainer
-                                } else {
-                                    MaterialTheme.colorScheme.surfaceVariant
-                                }
+                                containerColor = getCardContainerColor(isCurrentPlaying)
                             )
                         ) {
                             Row(
@@ -418,17 +410,9 @@ fun PlaylistDialog(
                             ) {
                                 // 播放状态图标
                                 Icon(
-                                    imageVector = if (isCurrentPlaying) {
-                                        Icons.Default.PlayArrow
-                                    } else {
-                                        Icons.AutoMirrored.Filled.PlaylistPlay
-                                    },
+                                    imageVector = getCurrentPlayingIcon(isCurrentPlaying),
                                     contentDescription = if (isCurrentPlaying) "正在播放" else "播放",
-                                    tint = if (isCurrentPlaying) {
-                                        MaterialTheme.colorScheme.primary
-                                    } else {
-                                        MaterialTheme.colorScheme.onSurfaceVariant
-                                    },
+                                    tint = getThemeColorByStatus(isCurrentPlaying),
                                     modifier = Modifier.size(20.dp)
                                 )
                                 
@@ -437,20 +421,16 @@ fun PlaylistDialog(
                                     modifier = Modifier.weight(1f)
                                 ) {
                                     Text(
-                                        text = feedItem.labels.title ?: "未知标题",
+                                        text = feedItem.labels.title.orDefaultTitle(),
                                         style = MaterialTheme.typography.bodyMedium,
-                                        fontWeight = if (isCurrentPlaying) FontWeight.Bold else FontWeight.Normal,
-                                        color = if (isCurrentPlaying) {
-                                            MaterialTheme.colorScheme.primary
-                                        } else {
-                                            MaterialTheme.colorScheme.onSurface
-                                        },
+                                        fontWeight = getFontWeight(isCurrentPlaying),
+                                        color = getTextColor(isCurrentPlaying),
                                         maxLines = 2,
                                         overflow = TextOverflow.Ellipsis
                                     )
                                     Spacer(modifier = Modifier.height(4.dp))
                                     Text(
-                                        text = "${feedItem.labels.source ?: "未知来源"} • ${feedItem.formattedTime}",
+                                        text = "${feedItem.labels.source.orDefaultSource()} • ${feedItem.formattedTime}",
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                                         maxLines = 1,
@@ -519,7 +499,7 @@ fun FeedDetailPage(
         // 文章标题
         item {
             Text(
-                text = feed.labels.title ?: "未知标题",
+                text = feed.labels.title.orDefaultTitle(),
                 style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
                 modifier = Modifier.padding(top = 16.dp)
             )
@@ -528,12 +508,7 @@ fun FeedDetailPage(
         // Tags 展示区域
         item {
             val displayTags = remember(feed.labels.tags) {
-                feed.labels.tags?.takeIf { it.isNotBlank() }
-                    ?.split(",", "，", ";", "；") // 支持多种分隔符
-                    ?.map { it.trim() }
-                    ?.filter { it.isNotEmpty() }
-                    ?.take(5) // 详情页可以显示更多标签
-                    ?: emptyList()
+                feed.labels.tags?.splitTags(5) ?: emptyList() // 详情页可以显示更多标签
             }
             
             if (displayTags.isNotEmpty()) {
@@ -546,39 +521,7 @@ fun FeedDetailPage(
                 ) {
                     displayTags.forEachIndexed { index, tag ->
                         // 根据标签内容生成颜色
-                        val colorIndex = tag.hashCode().let { if (it < 0) -it else it } % 6
-                        val (backgroundColor, borderColor, textColor) = when (colorIndex) {
-                            0 -> Triple(
-                                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f),
-                                MaterialTheme.colorScheme.primary.copy(alpha = 0.3f),
-                                MaterialTheme.colorScheme.primary
-                            )
-                            1 -> Triple(
-                                MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.3f),
-                                MaterialTheme.colorScheme.secondary.copy(alpha = 0.3f),
-                                MaterialTheme.colorScheme.secondary
-                            )
-                            2 -> Triple(
-                                MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.3f),
-                                MaterialTheme.colorScheme.tertiary.copy(alpha = 0.3f),
-                                MaterialTheme.colorScheme.tertiary
-                            )
-                            3 -> Triple(
-                                MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.3f),
-                                MaterialTheme.colorScheme.error.copy(alpha = 0.3f),
-                                MaterialTheme.colorScheme.error
-                            )
-                            4 -> Triple(
-                                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
-                                MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f),
-                                MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            else -> Triple(
-                                MaterialTheme.colorScheme.inversePrimary.copy(alpha = 0.2f),
-                                MaterialTheme.colorScheme.inversePrimary.copy(alpha = 0.4f),
-                                MaterialTheme.colorScheme.inversePrimary
-                            )
-                        }
+                        val (backgroundColor, borderColor, textColor) = tag.generateTagColors()
                         
                         Box(
                             modifier = Modifier
@@ -596,9 +539,9 @@ fun FeedDetailPage(
                             Text(
                                 text = tag,
                                 style = MaterialTheme.typography.labelSmall.copy(
-                                    fontSize = 11.sp
+                                    fontSize = getTagFontSize(isDetail = true)
                                 ),
-                                color = textColor.copy(alpha = 0.9f),
+                                color = textColor.copy(alpha = getTagTextAlpha(false, isDetail = true)),
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
                             )
@@ -612,7 +555,7 @@ fun FeedDetailPage(
         item {
             Spacer(modifier = Modifier.height(12.dp))
             Text(
-                text = "${feed.labels.source ?: "未知来源"} • 发布于: ${feed.formattedTime}",
+                text = "${feed.labels.source.orDefaultSource()} • 发布于: ${feed.formattedTime}",
                 style = MaterialTheme.typography.labelMedium,
                 color = Color.Gray
             )
@@ -708,222 +651,10 @@ fun HtmlText(html: String, modifier: Modifier = Modifier) {
                 settings.javaScriptEnabled = true
                 
                 // 根据系统主题设置WebView背景色
-                setBackgroundColor(if (isDarkTheme)
-                    "#1E1E1E".toColorInt()
-                else
-                    "#FFFFFF".toColorInt()
-                )
+                setBackgroundColor(getThemeBackgroundColor(isDarkTheme))
                 
                 // 根据主题调整HTML内容
-                val themedHtml = if (isDarkTheme) {
-                    """
-                    <html>
-                    <head>
-                        <style>
-                            body {
-                                background-color: #1E1E1E !important;
-                                color: #E0E0E0 !important;
-                                font-family: sans-serif;
-                                line-height: 1.6;
-                                margin: 0;
-                                padding: 12px;
-                            }
-                            
-                            /* 链接样式 */
-                            a {
-                                color: #BB86FC !important;
-                                text-decoration: underline;
-                            }
-                            a:visited {
-                                color: #CE93D8 !important;
-                            }
-                            
-                            /* 图片样式 */
-                            img {
-                                max-width: 100%;
-                                height: auto;
-                                border-radius: 8px;
-                                margin: 8px 0;
-                            }
-                            
-                            /* 标题样式 */
-                            h1, h2, h3, h4, h5, h6 {
-                                color: #FFFFFF !important;
-                                margin: 16px 0 8px 0;
-                            }
-                            
-                            /* 段落样式 */
-                            p {
-                                color: #E0E0E0 !important;
-                                margin: 8px 0;
-                                line-height: 1.6;
-                            }
-                            
-                            /* 列表样式 */
-                            ul, ol {
-                                color: #E0E0E0 !important;
-                                margin: 8px 0;
-                                padding-left: 20px;
-                            }
-                            li {
-                                color: #E0E0E0 !important;
-                                margin: 4px 0;
-                            }
-                            
-                            /* 代码样式 */
-                            code {
-                                background-color: #2D2D2D !important;
-                                color: #F8F8F2 !important;
-                                padding: 2px 4px;
-                                border-radius: 4px;
-                                font-family: monospace;
-                            }
-                            pre {
-                                background-color: #2D2D2D !important;
-                                color: #F8F8F2 !important;
-                                padding: 12px;
-                                border-radius: 8px;
-                                overflow-x: auto;
-                                margin: 12px 0;
-                            }
-                            
-                            /* 引用样式 */
-                            blockquote {
-                                background-color: #2D2D2D !important;
-                                color: #E0E0E0 !important;
-                                border-left: 4px solid #BB86FC;
-                                margin: 12px 0;
-                                padding: 12px 16px;
-                                border-radius: 0 8px 8px 0;
-                            }
-                            
-                            /* 表格样式 */
-                            table {
-                                background-color: #2D2D2D !important;
-                                color: #E0E0E0 !important;
-                                border-collapse: collapse;
-                                width: 100%;
-                                margin: 16px 0;
-                                border-radius: 8px;
-                                overflow: hidden;
-                                border: 1px solid #444444;
-                            }
-                            th, td {
-                                color: #E0E0E0 !important;
-                                border: 1px solid #444444;
-                                padding: 8px 12px;
-                                text-align: left;
-                            }
-                            th {
-                                background-color: #3A3A3A !important;
-                                font-weight: bold;
-                                color: #FFFFFF !important;
-                            }
-                            tr:nth-child(even) {
-                                background-color: #252525 !important;
-                            }
-                            
-                            /* 分割线样式 */
-                            hr {
-                                border: none;
-                                height: 1px;
-                                background-color: #444444;
-                                margin: 16px 0;
-                            }
-                            
-                            /* 强调文本样式 */
-                            strong, b {
-                                color: #FFFFFF !important;
-                                font-weight: bold;
-                            }
-                            em, i {
-                                color: #E0E0E0 !important;
-                                font-style: italic;
-                            }
-                            
-                            /* 通用容器样式 - 不破坏布局 */
-                            div {
-                                color: #E0E0E0 !important;
-                            }
-                            span {
-                                color: inherit !important;
-                            }
-                            
-                            /* 清除可能破坏布局的样式 */
-                            * {
-                                text-shadow: none !important;
-                                box-shadow: none !important;
-                            }
-                            
-                            /* 处理可能存在的白色背景 */
-                            [style*="background-color: white"],
-                            [style*="background-color: #fff"],
-                            [style*="background-color: #ffffff"],
-                            [style*="background: white"],
-                            [style*="background: #fff"],
-                            [style*="background: #ffffff"] {
-                                background-color: #2D2D2D !important;
-                            }
-                            
-                            /* 处理可能存在的黑色文字 */
-                            [style*="color: black"],
-                            [style*="color: #000"],
-                            [style*="color: #000000"] {
-                                color: #E0E0E0 !important;
-                            }
-                        </style>
-                    </head>
-                    <body>
-                        $html
-                    </body>
-                    </html>
-                    """
-                } else {
-                    """
-                    <html>
-                    <head>
-                        <style>
-                            body {
-                                background-color: #FFFFFF;
-                                color: #000000;
-                                font-family: sans-serif;
-                                line-height: 1.6;
-                            }
-                            a {
-                                color: #6650a4;
-                            }
-                            img {
-                                max-width: 100%;
-                                height: auto;
-                            }
-                            table {
-                                border-collapse: collapse;
-                                width: 100%;
-                                margin: 16px 0;
-                            }
-                            th, td {
-                                border: 1px solid #dddddd;
-                                padding: 8px 12px;
-                                text-align: left;
-                            }
-                            th {
-                                background-color: #f2f2f2;
-                                font-weight: bold;
-                            }
-                            tr:nth-child(even) {
-                                background-color: #f9f9f9;
-                            }
-                            tr:hover {
-                                background-color: #f5f5f5;
-                            }
-                        </style>
-                    </head>
-                    <body>
-                        $html
-                    </body>
-                    </html>
-                    """
-                }
+                val themedHtml = html.toThemedHtml(isDarkTheme)
                 
                 loadDataWithBaseURL(null, themedHtml, "text/html", "UTF-8", null)
             }

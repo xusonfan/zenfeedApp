@@ -40,14 +40,11 @@ import androidx.compose.material.icons.automirrored.filled.Article
 import androidx.compose.material.icons.automirrored.filled.LastPage
 import androidx.compose.material.icons.filled.AccessTime
 import androidx.compose.material.icons.filled.ArrowDropDown
-import androidx.compose.material.icons.filled.AutoMode
 import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
@@ -113,6 +110,23 @@ import androidx.compose.ui.unit.sp
 import com.ddyy.zenfeed.BuildConfig
 import com.ddyy.zenfeed.data.Feed
 import com.ddyy.zenfeed.data.Labels
+import com.ddyy.zenfeed.extension.generateTagColors
+import com.ddyy.zenfeed.extension.getDisplayContent
+import com.ddyy.zenfeed.extension.getLastReadFeedIndex
+import com.ddyy.zenfeed.extension.getPodcastButtonContainerColor
+import com.ddyy.zenfeed.extension.getPodcastButtonContentColor
+import com.ddyy.zenfeed.extension.getProxyStatusDescription
+import com.ddyy.zenfeed.extension.getTagFontSize
+import com.ddyy.zenfeed.extension.getThemeModeDescription
+import com.ddyy.zenfeed.extension.getThemeModeIcon
+import com.ddyy.zenfeed.extension.groupByCategory
+import com.ddyy.zenfeed.extension.hasValidPodcast
+import com.ddyy.zenfeed.extension.orDefaultSource
+import com.ddyy.zenfeed.extension.orDefaultTitle
+import com.ddyy.zenfeed.extension.splitTags
+import com.ddyy.zenfeed.extension.withReadAlpha
+import com.ddyy.zenfeed.extension.withReadSummaryAlpha
+import com.ddyy.zenfeed.extension.withReadTagAlpha
 import com.ddyy.zenfeed.ui.player.PlayerViewModel
 import kotlinx.coroutines.launch
 import kotlin.math.abs
@@ -133,10 +147,10 @@ fun FeedItem(
         !feed.labels.podcastUrl.isNullOrBlank()
     }
     val feedTitle = remember(feed.labels.title) {
-        feed.labels.title ?: "未知标题"
+        feed.labels.title.orDefaultTitle()
     }
     val feedSource = remember(feed.labels.source) {
-        feed.labels.source ?: "未知来源"
+        feed.labels.source.orDefaultSource()
     }
     // 简化卡片设计，减少重绘开销
     Card(
@@ -213,30 +227,12 @@ fun FeedItem(
                     ),
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
-                    color = MaterialTheme.colorScheme.onSurface.copy(
-                        alpha = if (feed.isRead) 0.6f else 1.0f // 已读文章标题淡化
-                    )
+                    color = MaterialTheme.colorScheme.onSurface.withReadAlpha(feed.isRead)
                 )
             
                 // 摘要内容处理 - 优化HTML处理性能
                 val displayContent = remember(feed.labels.summaryHtmlSnippet, feed.labels.summary) {
-                    val content = feed.labels.summaryHtmlSnippet?.takeIf { it.isNotBlank() }
-                        ?: feed.labels.summary?.takeIf { it.isNotBlank() }
-                        ?: ""
-                    
-                    if (content.contains('<')) {
-                        // 只有包含HTML标签时才进行处理
-                        content.replace(Regex("<[^>]*>"), "")
-                            .replace("&nbsp;", " ")
-                            .replace("&amp;", "&")
-                            .replace("&lt;", "<")
-                            .replace("&gt;", ">")
-                            .replace("&quot;", "\"")
-                            .replace("&#39;", "'")
-                            .trim()
-                    } else {
-                        content.trim()
-                    }
+                    feed.labels.summaryHtmlSnippet.getDisplayContent(feed.labels.summary)
                 }
                 
                 // 显示摘要
@@ -248,20 +244,13 @@ fun FeedItem(
                         style = MaterialTheme.typography.bodyMedium,
                         maxLines = 3, // 减少行数
                         overflow = TextOverflow.Ellipsis,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(
-                            alpha = if (feed.isRead) 0.5f else 1.0f // 已读文章摘要也淡化
-                        )
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.withReadSummaryAlpha(feed.isRead)
                     )
                 }
                 
                 // Tags 展示区域 - 放在卡片左下角
                 val displayTags = remember(feed.labels.tags) {
-                    feed.labels.tags?.takeIf { it.isNotBlank() }
-                        ?.split(",", "，", ";", "；") // 支持多种分隔符
-                        ?.map { it.trim() }
-                        ?.filter { it.isNotEmpty() }
-                        ?.take(3) // 最多显示3个标签
-                        ?: emptyList()
+                    feed.labels.tags?.splitTags(3) ?: emptyList()
                 }
                 
                 if (displayTags.isNotEmpty()) {
@@ -274,39 +263,7 @@ fun FeedItem(
                     ) {
                         displayTags.forEachIndexed { index, tag ->
                             // 根据标签内容生成颜色
-                            val colorIndex = tag.hashCode().let { if (it < 0) -it else it } % 6
-                            val (backgroundColor, borderColor, textColor) = when (colorIndex) {
-                                0 -> Triple(
-                                    MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f),
-                                    MaterialTheme.colorScheme.primary.copy(alpha = 0.3f),
-                                    MaterialTheme.colorScheme.primary
-                                )
-                                1 -> Triple(
-                                    MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.3f),
-                                    MaterialTheme.colorScheme.secondary.copy(alpha = 0.3f),
-                                    MaterialTheme.colorScheme.secondary
-                                )
-                                2 -> Triple(
-                                    MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.3f),
-                                    MaterialTheme.colorScheme.tertiary.copy(alpha = 0.3f),
-                                    MaterialTheme.colorScheme.tertiary
-                                )
-                                3 -> Triple(
-                                    MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.3f),
-                                    MaterialTheme.colorScheme.error.copy(alpha = 0.3f),
-                                    MaterialTheme.colorScheme.error
-                                )
-                                4 -> Triple(
-                                    MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
-                                    MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f),
-                                    MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                                else -> Triple(
-                                    MaterialTheme.colorScheme.inversePrimary.copy(alpha = 0.2f),
-                                    MaterialTheme.colorScheme.inversePrimary.copy(alpha = 0.4f),
-                                    MaterialTheme.colorScheme.inversePrimary
-                                )
-                            }
+                            val (backgroundColor, borderColor, textColor) = tag.generateTagColors()
                             
                             Box(
                                 modifier = Modifier
@@ -324,11 +281,9 @@ fun FeedItem(
                                 Text(
                                     text = tag,
                                     style = MaterialTheme.typography.labelSmall.copy(
-                                        fontSize = 10.sp
+                                        fontSize = getTagFontSize()
                                     ),
-                                    color = textColor.copy(
-                                        alpha = if (feed.isRead) 0.6f else 0.8f
-                                    ),
+                                    color = textColor.withReadTagAlpha(feed.isRead),
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis
                                 )
@@ -355,16 +310,8 @@ fun FeedItem(
                         .height(28.dp),
                     shape = RoundedCornerShape(12.dp),
                     colors = ButtonDefaults.filledTonalButtonColors(
-                        containerColor = if (isCurrentlyPlaying) {
-                            MaterialTheme.colorScheme.primary.copy(alpha = 0.7f)
-                        } else {
-                            MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f)
-                        },
-                        contentColor = if (isCurrentlyPlaying) {
-                            MaterialTheme.colorScheme.onPrimary
-                        } else {
-                            MaterialTheme.colorScheme.onPrimaryContainer
-                        }
+                        containerColor = getPodcastButtonContainerColor(isCurrentlyPlaying),
+                        contentColor = getPodcastButtonContentColor(isCurrentlyPlaying)
                     ),
                     contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
                 ) {
@@ -497,13 +444,6 @@ fun CategoryTabs(
     }
 }
 
-/**
- * 获取最近阅读的条目索引
- */
-fun getLastReadFeedIndex(feeds: List<Feed>): Int? {
-    // 找到最后一个已读的条目（按列表顺序）
-    return feeds.indexOfLast { it.isRead }.takeIf { it >= 0 }
-}
 
 /**
  * 跳转到最近阅读按钮组件
@@ -823,7 +763,7 @@ fun FeedsScreenContent(
                     
                     // 如果有当前播放的或者列表中有播客，显示悬浮按钮
                     val hasValidPodcast = currentPlayingFeed?.labels?.podcastUrl?.isNotBlank() == true ||
-                            (feedsUiState as? FeedsUiState.Success)?.feeds?.any { !it.labels.podcastUrl.isNullOrBlank() } == true
+                            (feedsUiState as? FeedsUiState.Success)?.feeds?.hasValidPodcast() == true
                     
                     if (hasValidPodcast) {
                         FloatingActionButton(
@@ -1187,10 +1127,7 @@ fun FeedsScreenContent(
 
                     // 预先按分类对 feeds 进行分组，避免在 Pager 内部进行昂贵的过滤操作
                     val categorizedFeeds = remember(feedsUiState.feeds) {
-                        val grouped = feedsUiState.feeds.groupBy { it.labels.category ?: "" }.toMutableMap()
-                        // 将"全部"类别也添加进去，确保"全部"列表覆盖任何可能存在的、分类为空字符串的列表
-                        grouped[""] = feedsUiState.feeds
-                        grouped.toMap()
+                        feedsUiState.feeds.groupByCategory()
                     }
                     
                     // 处理返回时的滚动定位 - 检测页面重新进入
@@ -1364,7 +1301,7 @@ fun FeedsScreenContent(
                         
                         // 获取最近阅读的条目索引
                         val lastReadIndex = remember(feedsForCategory) {
-                            getLastReadFeedIndex(feedsForCategory)
+                            feedsForCategory.getLastReadFeedIndex()
                         }
 
                         Box(modifier = Modifier.fillMaxSize()) {
@@ -1586,18 +1523,9 @@ fun DrawerContent(
         ) {
             // 主题切换菜单项
             MenuItemCard(
-                icon = when (currentThemeMode) {
-                    "light" -> Icons.Default.LightMode
-                    "dark" -> Icons.Default.DarkMode
-                    else -> Icons.Default.AutoMode // 跟随系统使用自动模式图标
-                },
+                icon = getThemeModeIcon(currentThemeMode),
                 title = "主题模式",
-                subtitle = when (currentThemeMode) {
-                    "light" -> "日间模式"
-                    "dark" -> "夜间模式"
-                    "system" -> "跟随系统"
-                    else -> "未知"
-                },
+                subtitle = getThemeModeDescription(currentThemeMode),
                 onClick = onThemeToggle
             )
             
@@ -1605,7 +1533,7 @@ fun DrawerContent(
             MenuItemCard(
                 icon = Icons.Default.Security,
                 title = "代理设置",
-                subtitle = if (isProxyEnabled) "代理已启用" else "代理已禁用",
+                subtitle = getProxyStatusDescription(isProxyEnabled),
                 onClick = onProxyToggle
             )
             
