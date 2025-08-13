@@ -65,23 +65,34 @@ jobs:
         if: steps.check_tag.outputs.skip == 'false'
         run: ./gradlew assembleRelease
 
-      - name: Create Git Tag
+      - name: Generate Changelog
         # 仅在标签不存在时执行
         if: steps.check_tag.outputs.skip == 'false'
+        id: changelog
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git tag "v${{ steps.version_reader.outputs.versionName }}" -a -m "Release v${{ steps.version_reader.outputs.versionName }}"
-          git push origin "v${{ steps.version_reader.outputs.versionName }}"
+          # 查找上一个版本的标签
+          latest_tag=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+          if [ -z "$latest_tag" ]; then
+            # 如果没有上一个标签，就从第一次提交开始计算
+            changelog_content=$(git log --pretty=format:"- %s" | sed -E 's/- (feat|fix|docs|style|refactor|perf|test|chore)(\(.+\))?: //')
+          else
+            # 如果有上一个标签，就计算两个标签之间的提交
+            changelog_content=$(git log ${latest_tag}..HEAD --pretty=format:"- %s" | sed -E 's/- (feat|fix|docs|style|refactor|perf|test|chore)(\(.+\))?: //')
+          fi
+          # 将处理后的内容写入 GITHUB_OUTPUT
+          echo "changelog<<EOF" >> $GITHUB_OUTPUT
+          echo "$changelog_content" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
 
-      - name: Create Release and Upload Asset
+      - name: Create Git Tag and Release
         # 仅在标签不存在时执行
         if: steps.check_tag.outputs.skip == 'false'
         uses: softprops/action-gh-release@v2
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           files: app/build/outputs/apk/release/app-release.apk
-          # 使用我们读取的版本号来创建 Release
+          # 使用我们生成的更新日志作为 Release 的 body
+          body: ${{ steps.changelog.outputs.changelog }}
+          # 使用我们读取的版本号来创建 Release 和 Tag
           tag_name: "v${{ steps.version_reader.outputs.versionName }}"
           name: "Release v${{ steps.version_reader.outputs.versionName }}"
-          generate_release_notes: true
