@@ -9,6 +9,9 @@ on:
 jobs:
   build-and-release:
     runs-on: ubuntu-latest
+    # 为工作流授予向仓库写入内容的权限，以便能推送 Git 标签
+    permissions:
+      contents: write
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
