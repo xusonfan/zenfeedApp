@@ -178,6 +178,10 @@ fun FeedsScreen(
         onSearchThresholdChanged = { threshold ->
             feedsViewModel.searchThreshold = threshold
         },
+        searchLimit = feedsViewModel.searchLimit,
+        onSearchLimitChanged = { limit ->
+            feedsViewModel.searchLimit = limit
+        },
         modifier = modifier
     )
 }
@@ -220,7 +224,9 @@ fun FeedsScreenContent(
     onSearchHistoryClick: (String) -> Unit = {},
     onClearSearchHistory: () -> Unit = {},
     searchThreshold: Float,
-    onSearchThresholdChanged: (Float) -> Unit
+    onSearchThresholdChanged: (Float) -> Unit,
+    searchLimit: Int,
+    onSearchLimitChanged: (Int) -> Unit
 ) {
     val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
     val coroutineScope = rememberCoroutineScope()
@@ -241,6 +247,9 @@ fun FeedsScreenContent(
     
     // 当前编辑的阈值
     var currentEditThreshold by remember { mutableStateOf(searchThreshold) }
+    
+    // 当前编辑的限制数量
+    var currentEditLimit by remember { mutableStateOf(searchLimit) }
 
     // 抽屉状态管理
     val drawerState = rememberDrawerState(DrawerValue.Closed)
@@ -647,6 +656,7 @@ fun FeedsScreenContent(
                                 // 阈值调整按钮（放在叉号左边）
                                 IconButton(onClick = {
                                     currentEditThreshold = searchThreshold
+                                    currentEditLimit = searchLimit
                                     showThresholdDialog = true
                                 }) {
                                     Icon(Icons.Default.Tune, contentDescription = "调整搜索阈值")
@@ -1147,11 +1157,12 @@ fun FeedsScreenContent(
                             if (showThresholdDialog) {
                                 AlertDialog(
                                     onDismissRequest = { showThresholdDialog = false },
-                                    title = { Text("设置搜索阈值") },
+                                    title = { Text("搜索设置") },
                                     text = {
                                         Column {
+                                            // 搜索阈值设置
                                             Text(
-                                                text = "阈值范围：0.0 - 1.0\n数值越高，搜索结果越精确\n默认值：0.55",
+                                                text = "搜索阈值：0.0 - 1.0\n数值越高，搜索结果越精确\n默认值：0.55",
                                                 style = MaterialTheme.typography.bodyMedium,
                                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                                             )
@@ -1184,12 +1195,51 @@ fun FeedsScreenContent(
                                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                                 )
                                             }
+                                            
+                                            Spacer(modifier = Modifier.padding(vertical = 16.dp))
+                                            
+                                            // 搜索结果限制设置
+                                            Text(
+                                                text = "最大结果数量：1 - 500\n限制搜索返回的结果数量\n默认值：500",
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                            Spacer(modifier = Modifier.padding(vertical = 8.dp))
+                                            Slider(
+                                                value = currentEditLimit.toFloat(),
+                                                onValueChange = { currentEditLimit = it.toInt() },
+                                                valueRange = 1f..500f,
+                                                steps = 498, // 499个间隔，步长1
+                                                modifier = Modifier.fillMaxWidth()
+                                            )
+                                            Row(
+                                                modifier = Modifier.fillMaxWidth(),
+                                                horizontalArrangement = Arrangement.SpaceBetween
+                                            ) {
+                                                Text(
+                                                    text = "1",
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                )
+                                                Text(
+                                                    text = currentEditLimit.toString(),
+                                                    style = MaterialTheme.typography.bodyMedium,
+                                                    fontWeight = FontWeight.Medium,
+                                                    color = MaterialTheme.colorScheme.primary
+                                                )
+                                                Text(
+                                                    text = "500",
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                )
+                                            }
                                         }
                                     },
                                     confirmButton = {
                                         TextButton(
                                             onClick = {
                                                 onSearchThresholdChanged(currentEditThreshold)
+                                                onSearchLimitChanged(currentEditLimit)
                                                 showThresholdDialog = false
                                             }
                                         ) {
@@ -1273,7 +1323,9 @@ fun FeedsScreenSuccessPreview() {
             onSearchHistoryClick = {},
             onClearSearchHistory = {},
             searchThreshold = 0.55f,
-            onSearchThresholdChanged = {}
+            onSearchThresholdChanged = {},
+            searchLimit = 500,
+            onSearchLimitChanged = {}
         )
     }
 }

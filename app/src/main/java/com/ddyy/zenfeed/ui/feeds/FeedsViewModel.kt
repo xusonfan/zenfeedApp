@@ -4,6 +4,7 @@ import android.app.Application
 import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
@@ -82,6 +83,9 @@ class FeedsViewModel(application: Application) : AndroidViewModel(application) {
 
     // 搜索阈值，用于控制语义搜索的相关性要求
     var searchThreshold: Float by mutableFloatStateOf(0.55f)
+    
+    // 搜索结果限制数量，默认500，范围1-500
+    var searchLimit: Int by mutableIntStateOf(500)
 
     init {
         loadReadFeedIds()
@@ -131,7 +135,7 @@ class FeedsViewModel(application: Application) : AndroidViewModel(application) {
                 isBackgroundRefreshing = true
             }
 
-            val result = feedRepository.getFeeds(useCache = !forceRefresh, hours = selectedTimeRangeHours, query = searchQuery, threshold = if (searchQuery.isNotEmpty()) searchThreshold else null)
+            val result = feedRepository.getFeeds(useCache = !forceRefresh, hours = selectedTimeRangeHours, query = searchQuery, threshold = if (searchQuery.isNotEmpty()) searchThreshold else null, limit = searchLimit)
             if (result.isSuccess) {
                 val feedResponse = result.getOrNull()
                 val newFeeds = feedResponse?.feeds ?: emptyList()
@@ -167,7 +171,7 @@ class FeedsViewModel(application: Application) : AndroidViewModel(application) {
             // 清除之前的错误消息状态
             errorMessage = ""
             isRefreshing = true
-            val result = feedRepository.getFeeds(useCache = false, hours = selectedTimeRangeHours, query = searchQuery, threshold = if (searchQuery.isNotEmpty()) searchThreshold else null) // 强制从网络获取
+            val result = feedRepository.getFeeds(useCache = false, hours = selectedTimeRangeHours, query = searchQuery, threshold = if (searchQuery.isNotEmpty()) searchThreshold else null, limit = searchLimit) // 强制从网络获取
             if (result.isSuccess) {
                 val feedResponse = result.getOrNull()
                 val newFeeds = feedResponse?.feeds ?: emptyList()
