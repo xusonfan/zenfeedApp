@@ -1,0 +1,204 @@
+package com.ddyy.zenfeed.ui.feeds.components.detail
+
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.PlaylistPlay
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import com.ddyy.zenfeed.data.Feed
+import com.ddyy.zenfeed.data.PlaylistInfo
+import com.ddyy.zenfeed.extension.orDefaultSource
+import com.ddyy.zenfeed.extension.orDefaultTitle
+import com.ddyy.zenfeed.ui.feeds.components.common.FeedTags
+import com.ddyy.zenfeed.ui.player.PlayerViewModel
+import kotlin.math.min
+
+@Composable
+fun FeedDetailPage(
+    feed: Feed,
+    playerViewModel: PlayerViewModel,
+    playlistInfo: PlaylistInfo?,
+    showPlaylistDialog: Boolean,
+    onShowPlaylistDialog: (Boolean) -> Unit,
+    onScrollProgressChanged: (Float) -> Unit = {}
+) {
+    // 滚动状态
+    val listState = rememberLazyListState()
+
+    // 计算滚动进度（用于顶栏过渡效果）
+    val scrollProgress by remember {
+        derivedStateOf {
+            val firstVisibleItemIndex = listState.firstVisibleItemIndex
+            val firstVisibleItemScrollOffset = listState.firstVisibleItemScrollOffset
+
+            // 当滚动到第一个item（标题）之后开始过渡
+            val threshold = 200f // 滚动200px后开始过渡
+            val progress = if (firstVisibleItemIndex == 0) {
+                min(firstVisibleItemScrollOffset / threshold, 1f)
+            } else {
+                1f
+            }
+            progress
+        }
+    }
+
+    // 当滚动进度变化时通知父组件
+    LaunchedEffect(scrollProgress) {
+        onScrollProgressChanged(scrollProgress)
+    }
+
+    LazyColumn(
+        state = listState,
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(
+            start = 16.dp,
+            end = 16.dp,
+            bottom = 16.dp
+        )
+    ) {
+        // 文章标题
+        item {
+            Text(
+                text = feed.labels.title.orDefaultTitle(),
+                style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
+                modifier = Modifier.padding(top = 16.dp)
+            )
+        }
+
+        // Tags 展示区域 - 使用抽取的组件
+        item {
+            FeedTags(
+                feed = feed,
+                maxTags = 5, // 详情页可以显示更多标签
+                isDetail = true,
+                isRead = feed.isRead,
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+
+        // 来源和发布时间
+        item {
+            Spacer(modifier = Modifier.height(12.dp))
+            Text(
+                text = "${feed.labels.source.orDefaultSource()} • 发布于: ${feed.formattedTime}",
+                style = MaterialTheme.typography.labelMedium,
+                color = Color.Gray
+            )
+        }
+
+        // 播放列表信息 - 使用动画避免闪烁
+        item {
+            AnimatedVisibility(
+                visible = playlistInfo != null && (playlistInfo.totalCount ?: 0) >= 1,
+                enter = fadeIn(animationSpec = tween(300)) + expandVertically(
+                    animationSpec = tween(
+                        300
+                    )
+                ),
+                exit = fadeOut(animationSpec = tween(300)) + shrinkVertically(
+                    animationSpec = tween(
+                        300
+                    )
+                )
+            ) {
+                playlistInfo?.let { info ->
+                    Column {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { onShowPlaylistDialog(true) },
+                            colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                            )
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(12.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.AutoMirrored.Filled.PlaylistPlay,
+                                        contentDescription = "播放列表",
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                    Text(
+                                        text = if (info.totalCount > 1) "播放列表: ${info.currentIndex + 1}/${info.totalCount}" else "正在播放",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                                Text(
+                                    text = if (info.totalCount > 1) {
+                                        when {
+                                            info.isShuffle && info.isRepeat -> "乱序循环"
+                                            info.isShuffle -> "乱序播放"
+                                            info.isRepeat -> "循环播放"
+                                            else -> "顺序播放"
+                                        }
+                                    } else {
+                                        "单曲播放"
+                                    },
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // 文章内容
+        item {
+            Spacer(modifier = Modifier.height(16.dp))
+            HtmlText(html = feed.labels.summaryHtmlSnippet ?: "")
+        }
+    }
+
+    // 播放列表弹窗
+    if (showPlaylistDialog) {
+        PlaylistDialog(
+            playerViewModel = playerViewModel,
+            onDismiss = { onShowPlaylistDialog(false) }
+        )
+    }
+}
