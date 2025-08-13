@@ -10,7 +10,6 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.Response
 import okhttp3.Route
-import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import java.net.InetSocketAddress
@@ -31,9 +30,7 @@ object ApiClient {
     @Volatile
     private var _currentProxyConfig: String = ""
     
-    private val loggingInterceptor = HttpLoggingInterceptor().apply {
-        level = HttpLoggingInterceptor.Level.BODY
-    }
+    private val loggingInterceptor = RequestLoggingInterceptor()
 
     /**
      * 获取API服务实例，支持动态更新请求地址和代理配置
