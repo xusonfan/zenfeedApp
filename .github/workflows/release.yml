@@ -4,7 +4,7 @@ name: Create GitHub Release
 on:
   push:
     branches:
-      - main # 当向 main 分支推送代码时触发
+      - master # 当向 master 分支推送代码时触发
 
 jobs:
   build-and-release:
