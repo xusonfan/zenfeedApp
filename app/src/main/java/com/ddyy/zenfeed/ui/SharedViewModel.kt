@@ -1,16 +1,27 @@
 package com.ddyy.zenfeed.ui
 
+import android.app.Application
 import android.content.Intent
 import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import androidx.lifecycle.ViewModel
+import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.viewModelScope
 import com.ddyy.zenfeed.data.Feed
+import com.ddyy.zenfeed.data.FeedRepository
 import com.ddyy.zenfeed.data.Labels
+import com.ddyy.zenfeed.data.model.GithubRelease
+import kotlinx.coroutines.launch
 
-class SharedViewModel : ViewModel() {
+class SharedViewModel(application: Application) : AndroidViewModel(application) {
+    private val feedRepository = FeedRepository(application)
+
     var selectedFeed by mutableStateOf<Feed?>(null)
+        private set
+
+    // 应用更新信息
+    var updateInfo by mutableStateOf<GithubRelease?>(null)
         private set
     
     // 存储全部feeds列表用于播放列表功能
@@ -202,5 +213,25 @@ class SharedViewModel : ViewModel() {
         lastViewedFeed = null
         detailEntryCategory = ""
         isInDetailPage = false
+    }
+    /**
+     * 检查应用更新
+     */
+    fun checkForUpdate() {
+        viewModelScope.launch {
+            updateInfo = feedRepository.checkForUpdate()
+            if (updateInfo != null) {
+                Log.d("SharedViewModel", "发现新版本: ${updateInfo?.tagName}")
+            } else {
+                Log.d("SharedViewModel", "未发现新版本")
+            }
+        }
+    }
+
+    /**
+     * 清除更新信息（用户关闭对话框时调用）
+     */
+    fun clearUpdateInfo() {
+        updateInfo = null
     }
 }

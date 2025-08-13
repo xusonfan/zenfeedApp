@@ -4,6 +4,8 @@ import android.content.Context
 import android.content.SharedPreferences
 import android.util.Log
 import androidx.core.content.edit
+import com.ddyy.zenfeed.BuildConfig
+import com.ddyy.zenfeed.data.model.GithubRelease
 import com.ddyy.zenfeed.data.network.ApiClient
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
@@ -274,5 +276,49 @@ class FeedRepository(private val context: Context) {
             Log.e("FeedRepository", "读取搜索历史失败", e)
             emptyList()
         }
+    }
+    /**
+     * 检查应用更新
+     * @return 如果有新版本，则返回 GithubRelease 对象，否则返回 null
+     */
+    suspend fun checkForUpdate(): GithubRelease? {
+        return try {
+            val apiService = ApiClient.getApiService(context)
+            // 替换为你的 GitHub 用户名和仓库名
+            val url = "https://api.github.com/repos/xusongfan/zenfeedApp/releases/latest"
+            val latestRelease = apiService.getLatestRelease(url)
+
+            // 比较版本号
+            // 我们移除 'v' 前缀来进行比较
+            val latestVersion = latestRelease.tagName.removePrefix("v")
+            val currentVersion = BuildConfig.VERSION_NAME
+
+            if (isNewerVersion(latestVersion, currentVersion)) {
+                latestRelease
+            } else {
+                null
+            }
+        } catch (e: Exception) {
+            Log.e("FeedRepository", "检查更新失败", e)
+            null
+        }
+    }
+
+    /**
+     * 比较两个版本字符串
+     * 例如： "1.0.1" > "1.0.0"
+     */
+    private fun isNewerVersion(latestVersion: String, currentVersion: String): Boolean {
+        val latestParts = latestVersion.split(".").map { it.toIntOrNull() ?: 0 }
+        val currentParts = currentVersion.split(".").map { it.toIntOrNull() ?: 0 }
+        val partCount = maxOf(latestParts.size, currentParts.size)
+
+        for (i in 0 until partCount) {
+            val latestPart = latestParts.getOrElse(i) { 0 }
+            val currentPart = currentParts.getOrElse(i) { 0 }
+            if (latestPart > currentPart) return true
+            if (latestPart < currentPart) return false
+        }
+        return false
     }
 }

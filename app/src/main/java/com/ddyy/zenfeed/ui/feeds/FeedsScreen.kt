@@ -84,7 +84,9 @@ import androidx.compose.ui.unit.sp
 import com.ddyy.zenfeed.data.Feed
 import com.ddyy.zenfeed.extension.getLastReadFeedIndex
 import com.ddyy.zenfeed.extension.groupByCategory
+import com.ddyy.zenfeed.ui.UpdateManager
 import com.ddyy.zenfeed.ui.feeds.components.common.FeedItem
+import com.ddyy.zenfeed.ui.feeds.components.dialog.UpdateDialog
 import com.ddyy.zenfeed.ui.feeds.components.list.JumpToLastReadButton
 import com.ddyy.zenfeed.ui.feeds.components.list.ModernErrorScreen
 import com.ddyy.zenfeed.ui.feeds.components.list.ModernLoadingScreen
@@ -357,6 +359,23 @@ fun FeedsScreenContent(
                 }
             }
         }
+    }
+
+    // 检查更新
+    val updateInfo = sharedViewModel?.updateInfo
+    if (updateInfo != null) {
+        val updateManager = remember { UpdateManager(context) }
+        UpdateDialog(
+            releaseInfo = updateInfo,
+            onDismiss = { sharedViewModel.clearUpdateInfo() },
+            onConfirm = { downloadUrl ->
+                val apkAsset = updateInfo.assets.find { it.name.endsWith(".apk") }
+                if (apkAsset != null) {
+                    updateManager.startDownload(downloadUrl, apkAsset.name)
+                }
+                sharedViewModel.clearUpdateInfo()
+            }
+        )
     }
 
     // 使用 ModalNavigationDrawer 包装整个内容

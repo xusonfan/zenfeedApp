@@ -28,6 +28,9 @@ class MainActivity : ComponentActivity() {
         // 处理启动时的Intent
         handleIntent(intent)
         
+        // 检查应用更新
+        sharedViewModel.checkForUpdate()
+        
         setContent {
             // 获取主题控制器
             val themeController = rememberThemeController(settingsDataStore)
