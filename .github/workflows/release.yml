@@ -1,17 +1,20 @@
-# GitHub Actions 工作流：自动创建 Release
+# GitHub Actions 工作流：基于 gradle.properties 的全自动 Release
 name: Create GitHub Release
 
 on:
   push:
-    tags:
-      - 'v*.*.*' # 当一个格式如 v1.0.0 的标签被推送时触发
+    branches:
+      - main # 当向 main 分支推送代码时触发
 
 jobs:
   build-and-release:
-    runs-on: ubuntu-latest # 使用最新的 Ubuntu 虚拟机运行
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        # 拉取所有历史记录，以便能正确生成更新日志
+        with:
+          fetch-depth: 0
 
       - name: Set up JDK 11
         uses: actions/setup-java@v4
@@ -21,14 +24,10 @@ jobs:
           cache: gradle
 
       - name: Decode Keystore and write to file
-        # 密钥库被存储为 Base64 编码的 Secret，以避免换行符问题
-        # 你需要在 GitHub 仓库的 Secrets 中创建一个名为 RELEASE_KEYSTORE 的 Secret
         run: |
           echo "${{ secrets.RELEASE_KEYSTORE }}" | base64 --decode > ${{ github.workspace }}/app/mykey
 
       - name: Create local.properties file
-        # 从 GitHub Secrets 中读取密钥信息并写入 local.properties 文件
-        # 这些 Secrets 需要你预先在 GitHub 仓库中设置
         run: |
           echo "keystore.file=${{ github.workspace }}/app/mykey" >> local.properties
           echo "keystore.password=${{ secrets.RELEASE_KEYSTORE_PASSWORD }}" >> local.properties
@@ -38,18 +37,48 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x ./gradlew
 
+      - name: Read version from gradle.properties
+        # 从 gradle.properties 文件中读取版本名称，并将其设置为后续步骤可用的环境变量
+        id: version_reader
+        run: |
+          versionName=$(grep 'appVersionName' gradle.properties | cut -d'=' -f2)
+          echo "versionName=$versionName" >> $GITHUB_OUTPUT
+
+      - name: Check if tag exists
+        # 检查与版本对应的 Git 标签是否已存在
+        id: check_tag
+        run: |
+          if git rev-parse "v${{ steps.version_reader.outputs.versionName }}" >/dev/null 2>&1; then
+            echo "Tag v${{ steps.version_reader.outputs.versionName }} already exists. No new release needed."
+            echo "skip=true" >> $GITHUB_OUTPUT
+          else
+            echo "Tag v${{ steps.version_reader.outputs.versionName }} does not exist. Proceeding with release."
+            echo "skip=false" >> $GITHUB_OUTPUT
+          fi
+
       - name: Build with Gradle
-        # 使用 assembleRelease 构建 APK 文件
+        # 仅在标签不存在时执行
+        # versionCode 会在构建脚本中自动计算，无需传入
+        if: steps.check_tag.outputs.skip == 'false'
         run: ./gradlew assembleRelease
 
+      - name: Create Git Tag
+        # 仅在标签不存在时执行
+        if: steps.check_tag.outputs.skip == 'false'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag "v${{ steps.version_reader.outputs.versionName }}" -a -m "Release v${{ steps.version_reader.outputs.versionName }}"
+          git push origin "v${{ steps.version_reader.outputs.versionName }}"
+
       - name: Create Release and Upload Asset
+        # 仅在标签不存在时执行
+        if: steps.check_tag.outputs.skip == 'false'
         uses: softprops/action-gh-release@v2
         with:
-          # GITHUB_TOKEN 是由 GitHub Actions 自动提供的
           token: ${{ secrets.GITHUB_TOKEN }}
-          # 指定要上传的构建产物路径
           files: app/build/outputs/apk/release/app-release.apk
-          # 将使用标签名作为 Release 的标题
-          name: Release ${{ github.ref_name }}
-          # 自动生成此版本与上一版本之间的更新日志
+          # 使用我们读取的版本号来创建 Release
+          tag_name: "v${{ steps.version_reader.outputs.versionName }}"
+          name: "Release v${{ steps.version_reader.outputs.versionName }}"
           generate_release_notes: true

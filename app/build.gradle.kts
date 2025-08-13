@@ -16,8 +16,15 @@ android {
         applicationId = "com.ddyy.zenfeed"
         minSdk = 24
         targetSdk = 36
-        versionCode = 1
-        versionName = "1.0"
+        // versionCode 是通过计算 Git 的总提交次数自动生成的
+        // 这确保了版本号永远是递增的
+        versionCode = try {
+            "git rev-list --count HEAD".runCommand().trim().toInt()
+        } catch (e: Exception) {
+            1 // 如果 Git 命令失败（例如在非 Git 环境中），则使用默认值
+        }
+        // versionName 从 gradle.properties 文件中读取
+        versionName = project.property("appVersionName") as String
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         
@@ -74,6 +81,17 @@ android {
         compose = true
         buildConfig = true
     }
+}
+
+// 帮助函数：用于在 Gradle 中执行 shell 命令
+fun String.runCommand(workingDir: File = File(".")): String {
+    val process = ProcessBuilder(split(" "))
+        .directory(workingDir)
+        .redirectOutput(ProcessBuilder.Redirect.PIPE)
+        .redirectError(ProcessBuilder.Redirect.PIPE)
+        .start()
+    process.waitFor()
+    return process.inputStream.bufferedReader().readText()
 }
 
 dependencies {
