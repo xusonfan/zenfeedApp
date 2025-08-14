@@ -114,6 +114,7 @@ dependencies {
     implementation(libs.androidx.media)
     implementation(libs.androidx.lifecycle.livedata.ktx)
     implementation(libs.androidx.runtime.livedata)
+    implementation(libs.androidx.lifecycle.runtime.compose)
     // Retrofit 和 OkHttp 用于网络请求
     implementation(libs.retrofit)
     implementation(libs.converter.gson)

@@ -24,6 +24,7 @@ data class SettingsUiState(
     val proxyUsername: String = "",
     val proxyPassword: String = "",
     val themeMode: String = "system",
+    val checkUpdateOnStart: Boolean = true,
     val isLoading: Boolean = false,
     val message: String = ""
 )
@@ -48,7 +49,8 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     private var currentInputProxyUsername = ""
     private var currentInputProxyPassword = ""
     private var currentThemeMode = "system"
-    
+    private var currentCheckUpdateOnStart = true
+
     init {
         // 初始化时加载当前设置
         loadCurrentSettings()
@@ -78,7 +80,8 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                     proxyPort = proxyPort,
                     proxyUsername = proxyUsername,
                     proxyPassword = proxyPassword,
-                    themeMode = settingsDataStore.themeMode.first()
+                    themeMode = settingsDataStore.themeMode.first(),
+                    checkUpdateOnStart = settingsDataStore.checkUpdateOnStart.first()
                 )
                 
                 if (currentInputApiUrl.isEmpty()) {
@@ -102,6 +105,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                     currentInputProxyPassword = proxyPassword
                 }
                 currentThemeMode = settingsDataStore.themeMode.first()
+                currentCheckUpdateOnStart = settingsDataStore.checkUpdateOnStart.first()
             }
         }
     }
@@ -172,6 +176,14 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         currentThemeMode = mode
     }
     
+    /**
+     * 更新启动时检查更新的设置
+     * @param enabled 是否启用
+     */
+    fun updateCheckUpdateOnStart(enabled: Boolean) {
+        currentCheckUpdateOnStart = enabled
+    }
+
     /**
      * 保存API地址设置
      */
@@ -372,6 +384,25 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     }
     
     /**
+     * 保存启动时检查更新的设置
+     */
+    fun saveCheckUpdateOnStart() {
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isLoading = true)
+            
+            try {
+                settingsDataStore.saveCheckUpdateOnStart(currentCheckUpdateOnStart)
+                showMessage("设置已保存")
+                
+            } catch (e: Exception) {
+                showMessage("保存失败：${e.message}")
+            } finally {
+                _uiState.value = _uiState.value.copy(isLoading = false)
+            }
+        }
+    }
+
+    /**
      * 重置所有设置到默认值
      */
     fun resetAllSettings() {
@@ -389,7 +420,8 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                 currentInputProxyUsername = SettingsDataStore.DEFAULT_PROXY_USERNAME
                 currentInputProxyPassword = SettingsDataStore.DEFAULT_PROXY_PASSWORD
                 currentThemeMode = SettingsDataStore.DEFAULT_THEME_MODE
-                
+                currentCheckUpdateOnStart = SettingsDataStore.DEFAULT_CHECK_UPDATE_ON_START
+
                 // 刷新API客户端以应用重置的设置
                 ApiClient.refreshApiService(getApplication())
                 

@@ -14,7 +14,7 @@ class UpdateManager(private val context: Context) {
 
     fun startDownload(url: String, fileName: String) {
         val request = DownloadManager.Request(Uri.parse(url))
-            .setTitle("正在下载更新...")
+            .setTitle("ZenFeed 更新")
             .setDescription(fileName)
             .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
             .setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, fileName)

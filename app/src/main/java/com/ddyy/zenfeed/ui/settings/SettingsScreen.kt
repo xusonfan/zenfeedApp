@@ -49,11 +49,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.ddyy.zenfeed.R
 import com.ddyy.zenfeed.data.SettingsDataStore
+import com.ddyy.zenfeed.ui.theme.ZenfeedTheme
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -138,6 +140,16 @@ fun SettingsScreen(
                 onProxyUsernameChange = settingsViewModel::updateProxyUsername,
                 onProxyPasswordChange = settingsViewModel::updateProxyPassword,
                 onSaveProxy = settingsViewModel::saveProxySettings
+            )
+
+            // 更新设置卡片
+            UpdateSettingsCard(
+                checkUpdateOnStart = uiState.checkUpdateOnStart,
+                onCheckUpdateOnStartChange = {
+                    settingsViewModel.updateCheckUpdateOnStart(it)
+                    settingsViewModel.saveCheckUpdateOnStart()
+                },
+                isLoading = uiState.isLoading
             )
         }
     }
@@ -582,4 +594,60 @@ private fun ProxySettingCard(
     }
 }
 
+@Composable
+private fun UpdateSettingsCard(
+    checkUpdateOnStart: Boolean,
+    onCheckUpdateOnStartChange: (Boolean) -> Unit,
+    isLoading: Boolean
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        ),
+        shape = RoundedCornerShape(16.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Text(
+                text = "更新设置",
+                style = MaterialTheme.typography.titleLarge.copy(
+                    fontWeight = FontWeight.Bold
+                ),
+                color = MaterialTheme.colorScheme.onSurface
+            )
 
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "启动时检查更新",
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Switch(
+                    checked = checkUpdateOnStart,
+                    onCheckedChange = onCheckUpdateOnStartChange,
+                    enabled = !isLoading
+                )
+            }
+        }
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun UpdateSettingsCardPreview() {
+    ZenfeedTheme {
+        UpdateSettingsCard(
+            checkUpdateOnStart = true,
+            onCheckUpdateOnStartChange = {},
+            isLoading = false
+        )
+    }
+}

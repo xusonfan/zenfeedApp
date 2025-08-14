@@ -8,11 +8,14 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
+import androidx.lifecycle.lifecycleScope
 import com.ddyy.zenfeed.data.SettingsDataStore
 import com.ddyy.zenfeed.ui.SharedViewModel
 import com.ddyy.zenfeed.ui.navigation.AppNavigation
 import com.ddyy.zenfeed.ui.theme.ZenfeedTheme
 import com.ddyy.zenfeed.ui.theme.rememberThemeController
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
     private val sharedViewModel: SharedViewModel by viewModels()
@@ -29,7 +32,7 @@ class MainActivity : ComponentActivity() {
         handleIntent(intent)
         
         // 检查应用更新
-        sharedViewModel.checkForUpdate()
+        checkUpdateOnStart()
         
         setContent {
             // 获取主题控制器
@@ -66,5 +69,14 @@ class MainActivity : ComponentActivity() {
         // 当配置变更时（如夜间模式切换），不需要重建Activity
         // Compose会自动响应主题变化并重新组合UI
         // 这样可以保持播放服务的连接状态
+    }
+
+    private fun checkUpdateOnStart() {
+        lifecycleScope.launch {
+            val checkUpdate = settingsDataStore.checkUpdateOnStart.first()
+            if (checkUpdate) {
+                sharedViewModel.checkForUpdate()
+            }
+        }
     }
 }

@@ -31,11 +31,12 @@ class SettingsDataStore(private val context: Context) {
         private val PROXY_USERNAME_KEY = stringPreferencesKey("proxy_username")
         private val PROXY_PASSWORD_KEY = stringPreferencesKey("proxy_password")
         private val THEME_MODE_KEY = stringPreferencesKey("theme_mode")
-        
+        private val CHECK_UPDATE_ON_START_KEY = booleanPreferencesKey("check_update_on_start")
+
         // 默认的API地址
         const val DEFAULT_API_BASE_URL = "https://zenfeed.xyz/"
         const val DEFAULT_BACKEND_URL = "http://zenfeed:1300"
-        
+
         // 默认的代理设置
         const val DEFAULT_PROXY_ENABLED = false
         const val DEFAULT_PROXY_TYPE = "HTTP"
@@ -43,9 +44,10 @@ class SettingsDataStore(private val context: Context) {
         const val DEFAULT_PROXY_PORT = 8080
         const val DEFAULT_PROXY_USERNAME = ""
         const val DEFAULT_PROXY_PASSWORD = ""
-        
+
         // 默认的主题设置
         const val DEFAULT_THEME_MODE = "system" // 可以是 "light", "dark", "system"
+        const val DEFAULT_CHECK_UPDATE_ON_START = true
     }
     
     /**
@@ -122,8 +124,16 @@ class SettingsDataStore(private val context: Context) {
                 preferences[THEME_MODE_KEY] ?: DEFAULT_THEME_MODE
             }
         
-        /**
-         * 保存API基础地址
+    /**
+     * 获取启动时检查更新设置的Flow
+     */
+    val checkUpdateOnStart: Flow<Boolean> = context.settingsDataStore.data
+        .map { preferences ->
+            preferences[CHECK_UPDATE_ON_START_KEY] ?: DEFAULT_CHECK_UPDATE_ON_START
+        }
+
+    /**
+     * 保存API基础地址
      * @param url 要保存的API基础地址
      */
     suspend fun saveApiBaseUrl(url: String) {
@@ -174,6 +184,16 @@ class SettingsDataStore(private val context: Context) {
     }
     
     /**
+     * 保存启动时检查更新的设置
+     * @param enabled 是否启用
+     */
+    suspend fun saveCheckUpdateOnStart(enabled: Boolean) {
+        context.settingsDataStore.edit { preferences ->
+            preferences[CHECK_UPDATE_ON_START_KEY] = enabled
+        }
+    }
+    
+    /**
      * 获取当前保存的API基础地址（同步方式，用于初始化）
      * @return 当前保存的API基础地址，如果没有则返回默认地址
      */
@@ -212,6 +232,7 @@ class SettingsDataStore(private val context: Context) {
             preferences[PROXY_USERNAME_KEY] = DEFAULT_PROXY_USERNAME
             preferences[PROXY_PASSWORD_KEY] = DEFAULT_PROXY_PASSWORD
             preferences[THEME_MODE_KEY] = DEFAULT_THEME_MODE
+            preferences[CHECK_UPDATE_ON_START_KEY] = DEFAULT_CHECK_UPDATE_ON_START
         }
     }
     
