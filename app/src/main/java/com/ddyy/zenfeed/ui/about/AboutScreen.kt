@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.ClickableText
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -35,11 +36,17 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.ddyy.zenfeed.BuildConfig
+import com.ddyy.zenfeed.ui.theme.ZenfeedTheme
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -141,13 +148,6 @@ fun AboutScreen(
                 }
             }
             
-            // 版本信息
-            InfoCard(
-                icon = Icons.Default.Info,
-                title = "版本信息",
-                content = "版本 ${BuildConfig.VERSION_NAME}\n版本号：${BuildConfig.VERSION_CODE}\n构建日期：${BuildConfig.BUILD_DATE}\n构建时间：${BuildConfig.BUILD_TIME}"
-            )
-            
             // 应用介绍
             InfoCard(
                 icon = Icons.Default.Star,
@@ -155,12 +155,19 @@ fun AboutScreen(
                 content = "Zenfeed 是一款专注于提供优质资讯阅读体验的应用。我们致力于为用户筛选和整合来自各个渠道的精选内容，让您能够高效地获取有价值的信息。\n\n主要特性：\n• 精选资讯聚合\n• 分类浏览\n• 播客支持\n• 夜间模式\n• 代理设置"
             )
             
+            // 版本信息
+            InfoCard(
+                icon = Icons.Default.Info,
+                title = "版本信息",
+                content = "版本 ${BuildConfig.VERSION_NAME}\n构建时间：${BuildConfig.BUILD_TIME}"
+            )
+            
             // 开发信息
             InfoCard(
-                icon = Icons.Default.Code,
-                title = "开发信息",
-                content = "本应用使用 Kotlin 和 Jetpack Compose 开发，采用现代化的 Android 开发技术栈，为用户提供流畅的使用体验。\n\n技术栈：\n• Kotlin\n• Jetpack Compose\n• Material Design 3\n• MVVM 架构\n• Coroutines"
-            )
+               icon = Icons.Default.Code,
+               title = "开发与致谢",
+               content = "本应用使用 Kotlin 和 Jetpack Compose 开发，采用现代化的 Android 开发技术栈，为用户提供流畅的使用体验。\n\n技术栈：\n• Kotlin\n• Jetpack Compose\n• Material Design 3\n• MVVM 架构\n• Coroutines\n\n本应用同样开源，源码地址：\nhttps://github.com/xusonfan/zenfeedApp\n\n后端服务由 glidea 开发的开源项目 zenfeed 强力驱动，在此表示特别感谢。\n后端项目地址: https://github.com/glidea/zenfeed"
+           )
             
             // 底部空间
             Spacer(modifier = Modifier.height(16.dp))
@@ -231,13 +238,53 @@ private fun InfoCard(
             
             Spacer(modifier = Modifier.height(8.dp))
             
-            Text(
-                text = content,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                lineHeight = 20.sp
+            val uriHandler = LocalUriHandler.current
+            val annotatedString = buildAnnotatedString {
+                append(content)
+                val urlRegex = "(https?://\\S+)".toRegex()
+                urlRegex.findAll(content).forEach { matchResult ->
+                    val url = matchResult.value
+                    val startIndex = matchResult.range.first
+                    val endIndex = matchResult.range.last + 1
+                    addStyle(
+                        style = SpanStyle(
+                            color = MaterialTheme.colorScheme.primary,
+                            textDecoration = TextDecoration.Underline
+                        ),
+                        start = startIndex,
+                        end = endIndex
+                    )
+                    addStringAnnotation(
+                        tag = "URL",
+                        annotation = url,
+                        start = startIndex,
+                        end = endIndex
+                    )
+                }
+            }
+
+            ClickableText(
+                text = annotatedString,
+                style = MaterialTheme.typography.bodyMedium.copy(
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    lineHeight = 20.sp
+                ),
+                onClick = { offset ->
+                    annotatedString.getStringAnnotations(tag = "URL", start = offset, end = offset)
+                        .firstOrNull()?.let { annotation ->
+                            uriHandler.openUri(annotation.item)
+                        }
+                }
             )
         }
+    }
+}
+
+@Preview(showBackground = true, heightDp = 1200)
+@Composable
+fun AboutScreenPreview() {
+    ZenfeedTheme {
+        AboutScreen(onBack = {})
     }
 }
 
