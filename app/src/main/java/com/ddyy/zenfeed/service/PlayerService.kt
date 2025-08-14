@@ -289,6 +289,9 @@ class PlayerService : Service(), AudioManager.OnAudioFocusChangeListener {
             updatePlaybackState(PlaybackStateCompat.STATE_PLAYING)
             startProgressUpdate()
             
+            // 应用当前的播放速度
+            applyCurrentPlaybackSpeed()
+            
             // 开始预加载下一个播客
             preloadNextTrack()
             return
@@ -325,6 +328,9 @@ class PlayerService : Service(), AudioManager.OnAudioFocusChangeListener {
                                 Log.d("PlayerService", "开始播放: $url")
                                 updatePlaybackState(PlaybackStateCompat.STATE_PLAYING)
                                 startProgressUpdate()
+                                
+                                // 应用当前的播放速度
+                                applyCurrentPlaybackSpeed()
                                 
                                 // 开始预加载下一个播客
                                 preloadNextTrack()
@@ -440,6 +446,8 @@ class PlayerService : Service(), AudioManager.OnAudioFocusChangeListener {
                         currentTrackIndex = shuffledIndices[nextShuffledIndex]
                         Log.d("PlayerService", "乱序模式，播放索引: $currentTrackIndex")
                         playCurrentTrack()
+                        // 确保切换到下一曲时应用当前的播放速度
+                        applyCurrentPlaybackSpeed()
                     } else {
                         Log.d("PlayerService", "乱序播放已是最后一首，播放结束")
                         updatePlaybackState(PlaybackStateCompat.STATE_STOPPED)
@@ -450,12 +458,16 @@ class PlayerService : Service(), AudioManager.OnAudioFocusChangeListener {
                 currentTrackIndex = (currentTrackIndex + 1) % playlist.size
                 Log.d("PlayerService", "循环模式，播放索引: $currentTrackIndex")
                 playCurrentTrack()
+                // 确保切换到下一曲时应用当前的播放速度
+                applyCurrentPlaybackSpeed()
             } else {
                 // 顺序模式：播放到最后一首后停止
                 if (hasNextTrack()) {
                     currentTrackIndex++
                     Log.d("PlayerService", "顺序模式，播放下一首，索引: $currentTrackIndex")
                     playCurrentTrack()
+                    // 确保切换到下一曲时应用当前的播放速度
+                    applyCurrentPlaybackSpeed()
                 } else {
                     Log.d("PlayerService", "已是最后一首，播放结束")
                     updatePlaybackState(PlaybackStateCompat.STATE_STOPPED)
@@ -497,6 +509,8 @@ class PlayerService : Service(), AudioManager.OnAudioFocusChangeListener {
                         currentTrackIndex = shuffledIndices[prevShuffledIndex]
                         Log.d("PlayerService", "乱序模式，播放索引: $currentTrackIndex")
                         playCurrentTrack()
+                        // 确保切换到上一曲时应用当前的播放速度
+                        applyCurrentPlaybackSpeed()
                     } else {
                         Log.d("PlayerService", "乱序播放已是第一首，无法播放上一首")
                     }
@@ -506,12 +520,16 @@ class PlayerService : Service(), AudioManager.OnAudioFocusChangeListener {
                 currentTrackIndex = if (currentTrackIndex > 0) currentTrackIndex - 1 else playlist.size - 1
                 Log.d("PlayerService", "循环模式，播放索引: $currentTrackIndex")
                 playCurrentTrack()
+                // 确保切换到上一曲时应用当前的播放速度
+                applyCurrentPlaybackSpeed()
             } else {
                 // 顺序模式：播放到第一首后停止
                 if (hasPreviousTrack()) {
                     currentTrackIndex--
                     Log.d("PlayerService", "顺序模式，播放上一首，索引: $currentTrackIndex")
                     playCurrentTrack()
+                    // 确保切换到上一曲时应用当前的播放速度
+                    applyCurrentPlaybackSpeed()
                 } else {
                     Log.d("PlayerService", "已是第一首，无法播放上一首")
                 }
@@ -650,6 +668,21 @@ class PlayerService : Service(), AudioManager.OnAudioFocusChangeListener {
     }
     
     /**
+     * 应用当前的播放速度到MediaPlayer
+     */
+    private fun applyCurrentPlaybackSpeed() {
+        val currentSpeed = playbackSpeeds[currentSpeedIndex]
+        mediaPlayer?.let { player ->
+            try {
+                player.playbackParams = player.playbackParams.setSpeed(currentSpeed)
+                Log.d("PlayerService", "应用播放速度: ${currentSpeed}x")
+            } catch (e: Exception) {
+                Log.e("PlayerService", "应用播放速度失败", e)
+            }
+        }
+    }
+    
+    /**
      * 生成乱序播放索引，确保当前播放的歌曲位置保持不变
      */
     private fun generateShuffledIndices(currentIndex: Int) {
@@ -689,6 +722,8 @@ class PlayerService : Service(), AudioManager.OnAudioFocusChangeListener {
             if (index >= 0 && index < playlist.size) {
                 currentTrackIndex = index
                 playCurrentTrack()
+                // 确保切换到指定曲目时应用当前的播放速度
+                applyCurrentPlaybackSpeed()
                 Log.d("PlayerService", "播放指定索引曲目: $index")
             } else {
                 Log.w("PlayerService", "无效的曲目索引: $index, 播放列表大小: ${playlist.size}")
