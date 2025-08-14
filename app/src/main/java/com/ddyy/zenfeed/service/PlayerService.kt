@@ -66,6 +66,12 @@ class PlayerService : Service(), AudioManager.OnAudioFocusChangeListener {
     // 倍速播放相关
     private val playbackSpeeds = listOf(0.75f, 1.0f, 1.25f, 1.5f, 1.75f, 2.0f)
     private var currentSpeedIndex = 1 // 默认1.0倍速
+    
+    // 定时停止相关
+    private val sleepTimerOptions = listOf(0, 15, 30, 60) // 单位：分钟，0表示关闭
+    private var currentSleepTimerIndex = 0 // 默认关闭
+    private var sleepTimerRunnable: Runnable? = null
+    private var sleepTimerEndTime: Long = 0 // 定时停止结束时间
 
     private val handler = Handler(Looper.getMainLooper())
     private val progressUpdateRunnable = object : Runnable {
@@ -681,6 +687,79 @@ class PlayerService : Service(), AudioManager.OnAudioFocusChangeListener {
             }
         }
     }
+    /**
+     * 切换定时停止
+     */
+    fun toggleSleepTimer() {
+        currentSleepTimerIndex = (currentSleepTimerIndex + 1) % sleepTimerOptions.size
+        val minutes = sleepTimerOptions[currentSleepTimerIndex]
+        
+        // 清除之前的定时器
+        cancelSleepTimer()
+        
+        if (minutes > 0) {
+            // 设置新的定时器
+            sleepTimerEndTime = System.currentTimeMillis() + minutes * 60 * 1000
+            sleepTimerRunnable = object : Runnable {
+                override fun run() {
+                    if (System.currentTimeMillis() >= sleepTimerEndTime) {
+                        // 时间到了，停止播放
+                        pause()
+                        cancelSleepTimer()
+                        Log.d("PlayerService", "定时停止：播放已暂停")
+                    } else {
+                        // 继续检查
+                        handler.postDelayed(this, 1000)
+                    }
+                }
+            }
+            handler.postDelayed(sleepTimerRunnable!!, 1000)
+            Log.d("PlayerService", "定时停止已设置：$minutes 分钟后停止")
+        } else {
+            Log.d("PlayerService", "定时停止已关闭")
+        }
+    }
+    
+    /**
+     * 取消定时停止
+     */
+    private fun cancelSleepTimer() {
+        sleepTimerRunnable?.let {
+            handler.removeCallbacks(it)
+            sleepTimerRunnable = null
+        }
+        sleepTimerEndTime = 0
+    }
+    
+    /**
+     * 获取当前定时停止时间
+     */
+    fun getCurrentSleepTimerMinutes(): Int {
+        return sleepTimerOptions[currentSleepTimerIndex]
+    }
+    
+    /**
+     * 获取当前定时停止的显示文本
+     */
+    fun getCurrentSleepTimerText(): String {
+        val minutes = sleepTimerOptions[currentSleepTimerIndex]
+        return when (minutes) {
+            0 -> "关闭"
+            15 -> "15分钟"
+            30 -> "30分钟"
+            60 -> "60分钟"
+            else -> "${minutes}分钟"
+        }
+    }
+    
+    /**
+     * 获取定时停止剩余时间（秒）
+     */
+    fun getSleepTimerRemainingSeconds(): Int {
+        if (sleepTimerEndTime <= 0) return 0
+        val remaining = sleepTimerEndTime - System.currentTimeMillis()
+        return maxOf(0, (remaining / 1000).toInt())
+    }
     
     /**
      * 生成乱序播放索引，确保当前播放的歌曲位置保持不变
@@ -1000,6 +1079,9 @@ class PlayerService : Service(), AudioManager.OnAudioFocusChangeListener {
         
         // 释放音频焦点
         abandonAudioFocus()
+        
+        // 清理定时停止器
+        cancelSleepTimer()
         
         // 释放媒体播放器资源
         mediaPlayer?.release()

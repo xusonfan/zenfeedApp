@@ -36,6 +36,9 @@ class PlayerViewModel : ViewModel() {
     private val _playbackSpeedText = MutableLiveData<String>()
     val playbackSpeedText: LiveData<String> = _playbackSpeedText
     
+    private val _sleepTimerText = MutableLiveData<String>()
+    val sleepTimerText: LiveData<String> = _sleepTimerText
+    
     // 添加服务绑定状态跟踪
     private var isServiceBound = false
     private var mediaControllerCallback: MediaControllerCompat.Callback? = null
@@ -71,6 +74,7 @@ class PlayerViewModel : ViewModel() {
             _isPlaying.value = currentState == PlaybackStateCompat.STATE_PLAYING
             updatePlaylistInfo()
             updatePlaybackSpeed()
+            updateSleepTimer()
             
             // 检查服务是否有活跃的播放会话，如果有则确保UI状态正确
             playerService?.let { service ->
@@ -249,6 +253,20 @@ class PlayerViewModel : ViewModel() {
     }
     
     /**
+     * 切换定时停止
+     */
+    fun toggleSleepTimer() {
+        try {
+            playerService?.let { service ->
+                service.toggleSleepTimer()
+                updateSleepTimer()
+            }
+        } catch (e: Exception) {
+            Log.e("PlayerViewModel", "切换定时停止时出错", e)
+        }
+    }
+    
+    /**
      * 播放下一首
      */
     fun playNext() {
@@ -320,6 +338,19 @@ class PlayerViewModel : ViewModel() {
             }
         } catch (e: Exception) {
             Log.e("PlayerViewModel", "更新倍速播放信息时出错", e)
+        }
+    }
+    
+    /**
+     * 更新定时停止信息
+     */
+    private fun updateSleepTimer() {
+        try {
+            playerService?.let { service ->
+                _sleepTimerText.value = service.getCurrentSleepTimerText()
+            }
+        } catch (e: Exception) {
+            Log.e("PlayerViewModel", "更新定时停止信息时出错", e)
         }
     }
     

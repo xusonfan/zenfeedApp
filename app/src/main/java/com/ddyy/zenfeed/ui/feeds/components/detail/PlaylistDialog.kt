@@ -12,13 +12,13 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Speed
+import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
@@ -56,6 +56,7 @@ fun PlaylistDialog(
     val playlist = remember { playerViewModel.getCurrentPlaylist() }
     val playlistInfo by playerViewModel.playlistInfo.observeAsState()
     val playbackSpeedText by playerViewModel.playbackSpeedText.observeAsState("1.0x")
+    val sleepTimerText by playerViewModel.sleepTimerText.observeAsState("关闭")
     val listState = rememberLazyListState()
 
     // 当弹窗打开时，自动滚动到当前播放的项目
@@ -113,14 +114,13 @@ fun PlaylistDialog(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(horizontal = 16.dp, vertical = 8.dp),
-                            horizontalArrangement = Arrangement.Center,
+                            horizontalArrangement = Arrangement.SpaceAround,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            // 循环播放按钮
-                            IconButton(
-                                onClick = { playerViewModel.toggleRepeatMode() },
-                                modifier = Modifier
-                                    .size(40.dp)
+                            // 循环播放按钮和文字组合
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                modifier = Modifier.clickable { playerViewModel.toggleRepeatMode() }
                             ) {
                                 Icon(
                                     imageVector = getRepeatModeIcon(info.isRepeat),
@@ -128,22 +128,18 @@ fun PlaylistDialog(
                                     tint = getThemeColorByStatus(info.isRepeat),
                                     modifier = Modifier.size(20.dp)
                                 )
+                                Text(
+                                    text = if (info.isRepeat) "循环" else "顺序",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = getThemeColorByStatus(info.isRepeat)
+                                )
                             }
 
-                            // 循环模式文字标签
-                            Text(
-                                text = if (info.isRepeat) "循环" else "顺序",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = getThemeColorByStatus(info.isRepeat)
-                            )
 
-                            Spacer(modifier = Modifier.width(24.dp))
-
-                            // 乱序播放按钮
-                            IconButton(
-                                onClick = { playerViewModel.toggleShuffleMode() },
-                                modifier = Modifier
-                                    .size(40.dp)
+                            // 乱序播放按钮和文字组合
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                modifier = Modifier.clickable { playerViewModel.toggleShuffleMode() }
                             ) {
                                 Icon(
                                     imageVector = getShuffleModeIcon(info.isShuffle),
@@ -151,24 +147,18 @@ fun PlaylistDialog(
                                     tint = getThemeColorByStatus(info.isShuffle),
                                     modifier = Modifier.size(20.dp)
                                 )
+                                Text(
+                                    text = if (info.isShuffle) "乱序" else "顺序",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = getThemeColorByStatus(info.isShuffle)
+                                )
                             }
 
-                            // 乱序模式文字标签
-                            Text(
-                                text = if (info.isShuffle) "乱序" else "顺序",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = getThemeColorByStatus(info.isShuffle)
-                            )
-
-                            Spacer(modifier = Modifier.width(24.dp))
 
                             // 倍速播放按钮和文字组合
-                            Row(
-                                modifier = Modifier
-                                    .clickable { playerViewModel.togglePlaybackSpeed() }
-                                    .padding(horizontal = 8.dp, vertical = 4.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                modifier = Modifier.clickable { playerViewModel.togglePlaybackSpeed() }
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.Speed,
@@ -180,6 +170,26 @@ fun PlaylistDialog(
                                     text = playbackSpeedText,
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.primary
+                                )
+                            }
+    
+    
+                            // 定时停止按钮和文字组合
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                modifier = Modifier.clickable { playerViewModel.toggleSleepTimer() }
+                            ) {
+                                val isSleepTimerOn = sleepTimerText != "关闭"
+                                Icon(
+                                    imageVector = Icons.Default.Timer,
+                                    contentDescription = "定时停止",
+                                    tint = getThemeColorByStatus(isSleepTimerOn),
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Text(
+                                    text = sleepTimerText,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = getThemeColorByStatus(isSleepTimerOn)
                                 )
                             }
                         }
