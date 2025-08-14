@@ -18,6 +18,7 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
@@ -54,6 +55,7 @@ fun PlaylistDialog(
 ) {
     val playlist = remember { playerViewModel.getCurrentPlaylist() }
     val playlistInfo by playerViewModel.playlistInfo.observeAsState()
+    val playbackSpeedText by playerViewModel.playbackSpeedText.observeAsState("1.0x")
     val listState = rememberLazyListState()
 
     // 当弹窗打开时，自动滚动到当前播放的项目
@@ -157,6 +159,29 @@ fun PlaylistDialog(
                                 style = MaterialTheme.typography.bodySmall,
                                 color = getThemeColorByStatus(info.isShuffle)
                             )
+
+                            Spacer(modifier = Modifier.width(24.dp))
+
+                            // 倍速播放按钮和文字组合
+                            Row(
+                                modifier = Modifier
+                                    .clickable { playerViewModel.togglePlaybackSpeed() }
+                                    .padding(horizontal = 8.dp, vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Speed,
+                                    contentDescription = "倍速播放",
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Text(
+                                    text = playbackSpeedText,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            }
                         }
 
                         HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))

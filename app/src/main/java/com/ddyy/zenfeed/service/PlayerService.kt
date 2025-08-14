@@ -62,6 +62,10 @@ class PlayerService : Service(), AudioManager.OnAudioFocusChangeListener {
     // 原始播放列表和乱序后的列表
     private var originalPlaylist: List<Feed> = emptyList()
     private var shuffledIndices: List<Int> = emptyList()
+    
+    // 倍速播放相关
+    private val playbackSpeeds = listOf(0.75f, 1.0f, 1.25f, 1.5f, 1.75f, 2.0f)
+    private var currentSpeedIndex = 1 // 默认1.0倍速
 
     private val handler = Handler(Looper.getMainLooper())
     private val progressUpdateRunnable = object : Runnable {
@@ -604,6 +608,46 @@ class PlayerService : Service(), AudioManager.OnAudioFocusChangeListener {
      * 获取当前乱序播放模式
      */
     fun isShuffleMode(): Boolean = isShuffleMode
+    
+    /**
+     * 切换倍速播放
+     */
+    fun togglePlaybackSpeed() {
+        currentSpeedIndex = (currentSpeedIndex + 1) % playbackSpeeds.size
+        val newSpeed = playbackSpeeds[currentSpeedIndex]
+        
+        mediaPlayer?.let { player ->
+            try {
+                player.playbackParams = player.playbackParams.setSpeed(newSpeed)
+                Log.d("PlayerService", "设置播放速度: ${newSpeed}x")
+            } catch (e: Exception) {
+                Log.e("PlayerService", "设置播放速度失败", e)
+            }
+        }
+    }
+    
+    /**
+     * 获取当前播放速度
+     */
+    fun getCurrentPlaybackSpeed(): Float {
+        return playbackSpeeds[currentSpeedIndex]
+    }
+    
+    /**
+     * 获取当前播放速度的显示文本
+     */
+    fun getCurrentPlaybackSpeedText(): String {
+        val speed = playbackSpeeds[currentSpeedIndex]
+        return when (speed) {
+            0.75f -> "0.75x"
+            1.0f -> "1.0x"
+            1.25f -> "1.25x"
+            1.5f -> "1.5x"
+            1.75f -> "1.75x"
+            2.0f -> "2.0x"
+            else -> "${speed}x"
+        }
+    }
     
     /**
      * 生成乱序播放索引，确保当前播放的歌曲位置保持不变

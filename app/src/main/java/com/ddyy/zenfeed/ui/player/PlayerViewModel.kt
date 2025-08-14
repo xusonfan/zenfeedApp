@@ -30,6 +30,12 @@ class PlayerViewModel : ViewModel() {
     private val _playlistInfo = MutableLiveData<PlaylistInfo>()
     val playlistInfo: LiveData<PlaylistInfo> = _playlistInfo
     
+    private val _playbackSpeed = MutableLiveData<Float>()
+    val playbackSpeed: LiveData<Float> = _playbackSpeed
+    
+    private val _playbackSpeedText = MutableLiveData<String>()
+    val playbackSpeedText: LiveData<String> = _playbackSpeedText
+    
     // 添加服务绑定状态跟踪
     private var isServiceBound = false
     private var mediaControllerCallback: MediaControllerCompat.Callback? = null
@@ -64,6 +70,7 @@ class PlayerViewModel : ViewModel() {
             val currentState = controller?.playbackState?.state
             _isPlaying.value = currentState == PlaybackStateCompat.STATE_PLAYING
             updatePlaylistInfo()
+            updatePlaybackSpeed()
             
             // 检查服务是否有活跃的播放会话，如果有则确保UI状态正确
             playerService?.let { service ->
@@ -228,6 +235,20 @@ class PlayerViewModel : ViewModel() {
     }
     
     /**
+     * 切换倍速播放
+     */
+    fun togglePlaybackSpeed() {
+        try {
+            playerService?.let { service ->
+                service.togglePlaybackSpeed()
+                updatePlaybackSpeed()
+            }
+        } catch (e: Exception) {
+            Log.e("PlayerViewModel", "切换倍速播放时出错", e)
+        }
+    }
+    
+    /**
      * 播放下一首
      */
     fun playNext() {
@@ -285,6 +306,20 @@ class PlayerViewModel : ViewModel() {
             }
         } catch (e: Exception) {
             Log.e("PlayerViewModel", "更新播放列表信息时出错", e)
+        }
+    }
+    
+    /**
+     * 更新倍速播放信息
+     */
+    private fun updatePlaybackSpeed() {
+        try {
+            playerService?.let { service ->
+                _playbackSpeed.value = service.getCurrentPlaybackSpeed()
+                _playbackSpeedText.value = service.getCurrentPlaybackSpeedText()
+            }
+        } catch (e: Exception) {
+            Log.e("PlayerViewModel", "更新倍速播放信息时出错", e)
         }
     }
     
