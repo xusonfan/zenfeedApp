@@ -4,4 +4,6 @@
     <external-files-path name="external_files" path="." />
     <!-- 日志文件目录 -->
     <external-files-path name="logs" path="logs/" />
+    <!-- 公共下载目录 -->
+    <external-path name="downloads" path="Download/" />
 </paths>
