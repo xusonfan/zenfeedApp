@@ -20,12 +20,12 @@ import java.util.TimeZone
  * 负责从API获取Feed数据，支持动态配置API地址和后端URL
  */
 class FeedRepository(private val context: Context) {
-    
+
     private val settingsDataStore = SettingsDataStore(context)
     private val sharedPreferences: SharedPreferences =
         context.getSharedPreferences("feed_cache", Context.MODE_PRIVATE)
     private val gson = Gson()
-    
+
     companion object {
         private const val CACHE_KEY_FEEDS = "cached_feeds"
         private const val CACHE_KEY_TIMESTAMP = "cache_timestamp"
@@ -69,7 +69,7 @@ class FeedRepository(private val context: Context) {
                 threshold = threshold,
                 summarize = false
             )
-            
+
             // 使用动态API服务和后端URL
             val apiService = ApiClient.getApiService(context)
             val backendUrl = settingsDataStore.backendUrl.first()
@@ -77,15 +77,15 @@ class FeedRepository(private val context: Context) {
                 backendUrl = backendUrl,
                 body = requestBody
             )
-            
+
             // 缓存新获取的数据
             cacheFeeds(response.feeds)
             Log.d("FeedRepository", "从网络获取并缓存 Feed 数据")
-            
+
             Result.success(response)
         } catch (e: Exception) {
             Log.e("FeedRepository", "获取摘要失败", e)
-            
+
             // 检查是否是SSL错误，提供更有用的错误信息
             val errorMessage = when {
                 e is javax.net.ssl.SSLException && e.message?.contains("Unable to parse TLS packet header") == true -> {
@@ -95,7 +95,7 @@ class FeedRepository(private val context: Context) {
                     "SSL连接失败：${e.message}"
                 }
                 e is java.net.ConnectException -> {
-                    "连接失败：无法连接到服务器，请检查网络和API地址"
+                    "连接失败：无法连接到服务器，请检查网络、代理设置和API地址"
                 }
                 e is java.net.SocketTimeoutException -> {
                     "连接超时：服务器响应超时，请检查网络连接"
@@ -104,9 +104,9 @@ class FeedRepository(private val context: Context) {
                     "网络请求失败：${e.message}"
                 }
             }
-            
+
             Log.e("FeedRepository", errorMessage)
-            
+
             // 如果网络请求失败且有缓存数据，返回缓存数据但仍然通知UI有网络错误
             val cachedFeeds = getCachedFeeds()
             if (cachedFeeds != null) {
@@ -120,12 +120,12 @@ class FeedRepository(private val context: Context) {
                     )
                 )
             }
-            
+
             // 返回包含详细错误信息的失败结果
             Result.failure(Exception(errorMessage, e))
         }
     }
-    
+
     /**
      * 获取缓存的 Feed 数据
      */
@@ -143,7 +143,7 @@ class FeedRepository(private val context: Context) {
             null
         }
     }
-    
+
     /**
      * 缓存 Feed 数据
      */
@@ -159,7 +159,7 @@ class FeedRepository(private val context: Context) {
             Log.e("FeedRepository", "缓存数据失败", e)
         }
     }
-    
+
     /**
      * 检查缓存是否有效
      */
@@ -168,10 +168,10 @@ class FeedRepository(private val context: Context) {
         val currentTime = System.currentTimeMillis()
         val cacheAge = currentTime - cacheTimestamp
         val cacheExpiryTime = CACHE_EXPIRY_HOURS * 60 * 60 * 1000 // 转换为毫秒
-        
+
         return cacheAge < cacheExpiryTime
     }
-    
+
     /**
      * 清除缓存
      */
@@ -184,7 +184,7 @@ class FeedRepository(private val context: Context) {
         }
         Log.d("FeedRepository", "Feed 缓存已清除")
     }
-    
+
     /**
      * 保存已读文章ID集合
      */
@@ -199,7 +199,7 @@ class FeedRepository(private val context: Context) {
             Log.e("FeedRepository", "保存已读状态失败", e)
         }
     }
-    
+
     /**
      * 获取已读文章ID集合
      */
@@ -218,7 +218,7 @@ class FeedRepository(private val context: Context) {
             emptySet()
         }
     }
-    
+
     /**
      * 添加已读文章ID
      */
@@ -227,7 +227,7 @@ class FeedRepository(private val context: Context) {
         currentReadIds.add(feedId)
         saveReadFeedIds(currentReadIds)
     }
-    
+
     /**
      * 移除已读文章ID
      */
@@ -237,14 +237,14 @@ class FeedRepository(private val context: Context) {
             saveReadFeedIds(currentReadIds)
         }
     }
-    
+
     /**
      * 检查文章是否已读
      */
     fun isFeedRead(feedId: String): Boolean {
         return getReadFeedIds().contains(feedId)
     }
-    
+
     /**
      * 保存搜索历史
      */
@@ -259,7 +259,7 @@ class FeedRepository(private val context: Context) {
             Log.e("FeedRepository", "保存搜索历史失败", e)
         }
     }
-    
+
     /**
      * 获取搜索历史
      */
