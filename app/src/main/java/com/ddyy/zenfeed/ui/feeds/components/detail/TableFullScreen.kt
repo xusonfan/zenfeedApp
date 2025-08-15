@@ -80,6 +80,12 @@ fun TableFullScreen(
             factory = { context ->
                 WebView(context).apply {
                     settings.javaScriptEnabled = true
+                    // 启用缩放功能
+                    settings.builtInZoomControls = true
+                    settings.displayZoomControls = false
+                    settings.useWideViewPort = true
+                    settings.loadWithOverviewMode = true
+                    
                     setBackgroundColor(getThemeBackgroundColor(isDarkTheme))
                     
                     // 为表格添加样式，使其更适合全屏显示
@@ -88,7 +94,7 @@ fun TableFullScreen(
                         <html>
                         <head>
                             <meta charset="UTF-8">
-                            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                            <meta name="viewport" content="width=device-width">
                             <style>
                                 body {
                                     margin: 0;
@@ -98,7 +104,6 @@ fun TableFullScreen(
                                     color: ${if (isDarkTheme) "#E0E0E0" else "#000000"};
                                 }
                                 table {
-                                    width: 100%;
                                     border-collapse: collapse;
                                     margin: 0;
                                 }
