@@ -39,6 +39,7 @@ import com.ddyy.zenfeed.data.Feed
 import com.ddyy.zenfeed.extension.orDefaultSource
 import com.ddyy.zenfeed.extension.orDefaultTitle
 import com.ddyy.zenfeed.ui.feeds.components.detail.FeedDetailPage
+import com.ddyy.zenfeed.ui.feeds.components.detail.TableFullScreen
 import com.ddyy.zenfeed.ui.player.PlayerViewModel
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
@@ -89,6 +90,11 @@ fun FeedDetailScreen(
     
     // 用于接收滚动进度的状态
     var scrollProgress by remember { mutableStateOf(0f) }
+    
+    // 表格全屏显示状态
+    var showTableFullScreen by remember { mutableStateOf(false) }
+    var currentTableHtml by remember { mutableStateOf("") }
+    var currentTableTitle by remember { mutableStateOf("") }
     
     // HorizontalPager状态
     val pagerState = rememberPagerState(
@@ -214,10 +220,24 @@ fun FeedDetailScreen(
                     onShowPlaylistDialog = { showPlaylistDialog = it },
                     onScrollProgressChanged = { progress ->
                         scrollProgress = progress
+                    },
+                    onTableClick = { tableHtml, title ->
+                        currentTableHtml = tableHtml
+                        currentTableTitle = title
+                        showTableFullScreen = true
                     }
                 )
             }
         }
+    }
+
+    // 表格全屏显示弹窗
+    if (showTableFullScreen) {
+        TableFullScreen(
+            tableHtml = currentTableHtml,
+            title = currentTableTitle,
+            onBack = { showTableFullScreen = false }
+        )
     }
 }
 

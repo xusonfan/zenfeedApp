@@ -51,7 +51,8 @@ fun FeedDetailPage(
     playlistInfo: PlaylistInfo?,
     showPlaylistDialog: Boolean,
     onShowPlaylistDialog: (Boolean) -> Unit,
-    onScrollProgressChanged: (Float) -> Unit = {}
+    onScrollProgressChanged: (Float) -> Unit = {},
+    onTableClick: (String, String) -> Unit = { _, _ -> }
 ) {
     // 滚动状态
     val listState = rememberLazyListState()
@@ -190,7 +191,12 @@ fun FeedDetailPage(
         // 文章内容
         item {
             Spacer(modifier = Modifier.height(16.dp))
-            HtmlText(html = feed.labels.summaryHtmlSnippet ?: "")
+            HtmlText(
+                html = feed.labels.summaryHtmlSnippet ?: "",
+                onTableClick = { tableHtml ->
+                    onTableClick(tableHtml, feed.labels.title.orDefaultTitle())
+                }
+            )
         }
     }
 
