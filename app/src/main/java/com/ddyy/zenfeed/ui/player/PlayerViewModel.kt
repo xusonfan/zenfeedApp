@@ -5,7 +5,9 @@ import android.content.Context
 import android.content.Intent
 import android.content.ServiceConnection
 import android.os.Build
+import android.os.Handler
 import android.os.IBinder
+import android.os.Looper
 import android.support.v4.media.session.MediaControllerCompat
 import android.support.v4.media.session.PlaybackStateCompat
 import android.util.Log
@@ -42,6 +44,10 @@ class PlayerViewModel : ViewModel() {
     // 添加服务绑定状态跟踪
     private var isServiceBound = false
     private var mediaControllerCallback: MediaControllerCompat.Callback? = null
+    
+    // 定时器UI更新相关
+    private var sleepTimerUpdateRunnable: Runnable? = null
+    private val handler = Handler(Looper.getMainLooper())
 
     private val connection = object : ServiceConnection {
         override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
@@ -348,9 +354,42 @@ class PlayerViewModel : ViewModel() {
         try {
             playerService?.let { service ->
                 _sleepTimerText.value = service.getCurrentSleepTimerText()
+                
+                // 如果定时器正在运行，启动UI更新
+                val minutes = service.getCurrentSleepTimerMinutes()
+                if (minutes > 0) {
+                    startSleepTimerUpdate()
+                } else {
+                    stopSleepTimerUpdate()
+                }
             }
         } catch (e: Exception) {
             Log.e("PlayerViewModel", "更新定时停止信息时出错", e)
+        }
+    }
+    
+    /**
+     * 启动定时器UI更新
+     */
+    private fun startSleepTimerUpdate() {
+        stopSleepTimerUpdate() // 先停止之前的更新
+        
+        sleepTimerUpdateRunnable = object : Runnable {
+            override fun run() {
+                updateSleepTimer()
+                handler.postDelayed(this, 1000) // 每秒更新一次
+            }
+        }
+        handler.postDelayed(sleepTimerUpdateRunnable!!, 1000)
+    }
+    
+    /**
+     * 停止定时器UI更新
+     */
+    private fun stopSleepTimerUpdate() {
+        sleepTimerUpdateRunnable?.let {
+            handler.removeCallbacks(it)
+            sleepTimerUpdateRunnable = null
         }
     }
     
@@ -368,5 +407,8 @@ class PlayerViewModel : ViewModel() {
             playerService?.mediaSession?.controller?.unregisterCallback(callback)
         }
         mediaControllerCallback = null
+        
+        // 停止定时器UI更新
+        stopSleepTimerUpdate()
     }
 }

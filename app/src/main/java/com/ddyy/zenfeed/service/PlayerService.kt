@@ -706,9 +706,11 @@ class PlayerService : Service(), AudioManager.OnAudioFocusChangeListener {
                         // 时间到了，停止播放
                         pause()
                         cancelSleepTimer()
-                        Log.d("PlayerService", "定时停止：播放已暂停")
+                        // 重置定时器索引到关闭状态
+                        currentSleepTimerIndex = 0
+                        Log.d("PlayerService", "定时停止：播放已暂停，定时器已重置")
                     } else {
-                        // 继续检查
+                        // 继续检查，每秒检查一次
                         handler.postDelayed(this, 1000)
                     }
                 }
@@ -743,8 +745,23 @@ class PlayerService : Service(), AudioManager.OnAudioFocusChangeListener {
      */
     fun getCurrentSleepTimerText(): String {
         val minutes = sleepTimerOptions[currentSleepTimerIndex]
+        if (minutes == 0) {
+            return "关闭"
+        }
+        
+        // 如果定时器正在运行，计算剩余时间
+        if (sleepTimerEndTime > 0) {
+            val remainingMs = sleepTimerEndTime - System.currentTimeMillis()
+            if (remainingMs <= 0) {
+                return "关闭"
+            }
+            // 向上取值计算剩余分钟数
+            val remainingMinutes = ((remainingMs + 60 * 1000 - 1) / (60 * 1000)).toInt()
+            return "${remainingMinutes}分钟"
+        }
+        
+        // 如果定时器设置了但未启动，显示设置的时间
         return when (minutes) {
-            0 -> "关闭"
             15 -> "15分钟"
             30 -> "30分钟"
             60 -> "60分钟"
