@@ -306,6 +306,10 @@ fun FeedsScreenContent(
                     keyboardController?.show()
                 }
             }
+        } else if (searchQuery.isNotEmpty()) {
+            // 如果当前有搜索结果，则清除搜索
+            onSearchQueryChanged("")
+            searchText = ""
         } else {
             val currentTime = System.currentTimeMillis()
             val currentCategory = pagerCategories.getOrNull(pagerState.currentPage) ?: ""
