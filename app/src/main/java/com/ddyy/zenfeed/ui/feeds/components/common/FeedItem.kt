@@ -1,5 +1,7 @@
 package com.ddyy.zenfeed.ui.feeds.components.common
 
+import android.graphics.Bitmap
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -26,12 +28,19 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.ddyy.zenfeed.ZenFeedApplication
 import com.ddyy.zenfeed.data.Feed
 import com.ddyy.zenfeed.extension.getDisplayContent
 import com.ddyy.zenfeed.extension.getPodcastButtonContainerColor
@@ -40,7 +49,6 @@ import com.ddyy.zenfeed.extension.orDefaultSource
 import com.ddyy.zenfeed.extension.orDefaultTitle
 import com.ddyy.zenfeed.extension.withReadAlpha
 import com.ddyy.zenfeed.extension.withReadSummaryAlpha
-
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -53,6 +61,9 @@ fun FeedItem(
     isCurrentlyPlaying: Boolean = false,
     isPlaying: Boolean = false
 ) {
+    val context = LocalContext.current
+    val faviconManager = remember { (context.applicationContext as ZenFeedApplication).faviconManager }
+    
     // 使用 remember 缓存不变的属性，减少重组开销
     val hasValidPodcast = remember(feed.labels.podcastUrl) {
         !feed.labels.podcastUrl.isNullOrBlank()
@@ -62,6 +73,16 @@ fun FeedItem(
     }
     val feedSource = remember(feed.labels.source) {
         feed.labels.source.orDefaultSource()
+    }
+    
+    // favicon图标状态
+    var faviconBitmap by remember { mutableStateOf<Bitmap?>(null) }
+    
+    // 异步获取favicon
+    LaunchedEffect(feed.labels.link) {
+        if (!feed.labels.link.isNullOrEmpty()) {
+            faviconBitmap = faviconManager.getFavicon(feed.labels.link)
+        }
     }
     // 简化卡片设计，减少重绘开销
     Card(
@@ -88,13 +109,22 @@ fun FeedItem(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    // 简化图标
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.Article,
-                        contentDescription = "来源图标",
-                        modifier = Modifier.size(16.dp),
-                        tint = MaterialTheme.colorScheme.primary
-                    )
+                    // 显示favicon图标或默认图标
+                    val currentFavicon = faviconBitmap
+                    if (currentFavicon != null) {
+                        Image(
+                            bitmap = currentFavicon.asImageBitmap(),
+                            contentDescription = "网站图标",
+                            modifier = Modifier.size(16.dp)
+                        )
+                    } else {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.Article,
+                            contentDescription = "来源图标",
+                            modifier = Modifier.size(16.dp),
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                    }
 
                     Spacer(modifier = Modifier.width(8.dp))
 
