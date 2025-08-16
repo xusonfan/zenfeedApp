@@ -5,11 +5,13 @@ import android.content.SharedPreferences
 import android.util.Log
 import androidx.core.content.edit
 import com.ddyy.zenfeed.BuildConfig
+import com.ddyy.zenfeed.ZenFeedApplication
 import com.ddyy.zenfeed.data.model.GithubRelease
 import com.ddyy.zenfeed.data.network.ApiClient
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import kotlinx.coroutines.flow.first
+import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -25,6 +27,9 @@ class FeedRepository(private val context: Context) {
     private val sharedPreferences: SharedPreferences =
         context.getSharedPreferences("feed_cache", Context.MODE_PRIVATE)
     private val gson = Gson()
+    private val faviconManager: FaviconManager by lazy {
+        (context.applicationContext as ZenFeedApplication).faviconManager
+    }
 
     companion object {
         private const val CACHE_KEY_FEEDS = "cached_feeds"
@@ -173,16 +178,77 @@ class FeedRepository(private val context: Context) {
     }
 
     /**
-     * 清除缓存
+     * 获取总缓存大小（单位：字节）
+     * 包括 SharedPreferences、图标缓存和网络缓存
+     */
+    fun getCacheSize(): Long {
+        var totalSize = 0L
+        try {
+            // 1. SharedPreferences 缓存大小
+            val feedsJson = sharedPreferences.getString(CACHE_KEY_FEEDS, null)
+            val readFeedsJson = sharedPreferences.getString(CACHE_KEY_READ_FEEDS, null)
+            val searchHistoryJson = sharedPreferences.getString(CACHE_KEY_SEARCH_HISTORY, null)
+            feedsJson?.let { totalSize += it.toByteArray().size }
+            readFeedsJson?.let { totalSize += it.toByteArray().size }
+            searchHistoryJson?.let { totalSize += it.toByteArray().size }
+
+            // 2. 图标缓存大小
+            totalSize += faviconManager.getCacheSize()
+
+            // 3. OkHttp 缓存大小
+            val okhttpCacheDir = File(context.cacheDir, "okhttp")
+            if (okhttpCacheDir.exists()) {
+                totalSize += okhttpCacheDir.walkTopDown().filter { it.isFile }.sumOf { it.length() }
+            }
+
+            // 4. 播客媒体缓存大小
+            val mediaCacheDir = File(context.cacheDir, "media_cache")
+            if (mediaCacheDir.exists()) {
+                totalSize += mediaCacheDir.walkTopDown().filter { it.isFile }.sumOf { it.length() }
+            }
+
+        } catch (e: Exception) {
+            Log.e("FeedRepository", "计算缓存大小失败", e)
+        }
+        return totalSize
+    }
+
+    /**
+     * 清除所有缓存
      */
     fun clearCache() {
+        // 1. 清除 SharedPreferences 缓存
         sharedPreferences.edit {
             remove(CACHE_KEY_FEEDS)
                 .remove(CACHE_KEY_TIMESTAMP)
                 .remove(CACHE_KEY_READ_FEEDS)
                 .remove(CACHE_KEY_SEARCH_HISTORY)
         }
-        Log.d("FeedRepository", "Feed 缓存已清除")
+        Log.d("FeedRepository", "SharedPreferences 缓存已清除")
+
+        // 2. 清除图标缓存
+        faviconManager.clearCache()
+        Log.d("FeedRepository", "图标缓存已清除")
+
+        // 3. 清除 OkHttp 缓存
+        val okhttpCacheDir = File(context.cacheDir, "okhttp")
+        if (okhttpCacheDir.exists()) {
+            if (okhttpCacheDir.deleteRecursively()) {
+                Log.d("FeedRepository", "OkHttp 缓存已清除")
+            } else {
+                Log.e("FeedRepository", "清除 OkHttp 缓存失败")
+            }
+        }
+
+        // 4. 清除播客媒体缓存
+        val mediaCacheDir = File(context.cacheDir, "media_cache")
+        if (mediaCacheDir.exists()) {
+            if (mediaCacheDir.deleteRecursively()) {
+                Log.d("FeedRepository", "播客媒体缓存已清除")
+            } else {
+                Log.e("FeedRepository", "清除播客媒体缓存失败")
+            }
+        }
     }
 
     /**

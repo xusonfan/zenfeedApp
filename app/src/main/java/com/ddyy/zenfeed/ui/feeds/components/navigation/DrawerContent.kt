@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.BugReport
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Settings
@@ -41,7 +42,9 @@ fun DrawerContent(
     currentThemeMode: String = "system",
     onThemeToggle: () -> Unit = {},
     isProxyEnabled: Boolean = false,
-    onProxyToggle: () -> Unit = {}
+    onProxyToggle: () -> Unit = {},
+    cacheSize: String = "0.00 MB",
+    onClearCacheClick: () -> Unit = {}
 ) {
     ModalDrawerSheet(
         modifier = modifier.widthIn(max = 280.dp),
@@ -103,6 +106,14 @@ fun DrawerContent(
                 subtitle = getProxyStatusDescription(isProxyEnabled),
                 onClick = onProxyToggle
             )
+
+           // 缓存清理菜单项
+           MenuItemCard(
+               icon = Icons.Default.Delete,
+               title = "清理缓存",
+               subtitle = "当前缓存大小: $cacheSize",
+               onClick = onClearCacheClick
+           )
 
             // 日志记录菜单项
             MenuItemCard(

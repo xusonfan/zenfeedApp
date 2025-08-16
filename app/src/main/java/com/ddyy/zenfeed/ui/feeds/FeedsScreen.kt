@@ -96,6 +96,7 @@ import com.ddyy.zenfeed.ui.player.PlayerViewModel
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import java.util.Locale
 import kotlin.math.abs
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
@@ -114,7 +115,7 @@ fun FeedsScreen(
     currentThemeMode: String = "system",
     onThemeToggle: () -> Unit = {},
     isProxyEnabled: Boolean = false,
-    onProxyToggle: () -> Unit = {}
+    onProxyToggle: () -> Unit = {},
 ) {
     val feedsUiState = feedsViewModel.feedsUiState
     val selectedCategory = feedsViewModel.selectedCategory
@@ -182,6 +183,8 @@ fun FeedsScreen(
         onSearchLimitChanged = { limit ->
             feedsViewModel.searchLimit = limit
         },
+        cacheSize = feedsViewModel.cacheSize,
+        onClearCacheClick = { feedsViewModel.clearCache() },
         modifier = modifier
     )
 }
@@ -226,7 +229,9 @@ fun FeedsScreenContent(
     searchThreshold: Float,
     onSearchThresholdChanged: (Float) -> Unit,
     searchLimit: Int,
-    onSearchLimitChanged: (Int) -> Unit
+    onSearchLimitChanged: (Int) -> Unit,
+    cacheSize: String,
+    onClearCacheClick: () -> Unit
 ) {
     val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
     val coroutineScope = rememberCoroutineScope()
@@ -407,7 +412,9 @@ fun FeedsScreenContent(
                 currentThemeMode = currentThemeMode,
                 onThemeToggle = onThemeToggle,
                 isProxyEnabled = isProxyEnabled,
-                onProxyToggle = onProxyToggle
+                onProxyToggle = onProxyToggle,
+                cacheSize = cacheSize,
+                onClearCacheClick = onClearCacheClick
             )
         }) {
         Scaffold(
@@ -1176,6 +1183,7 @@ fun FeedsScreenContent(
                                                 )
                                                 Text(
                                                     text = String.format(
+                                                        Locale.US,
                                                         "%.2f",
                                                         currentEditThreshold
                                                     ),

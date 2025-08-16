@@ -12,6 +12,7 @@ import androidx.lifecycle.viewModelScope
 import com.ddyy.zenfeed.data.Feed
 import com.ddyy.zenfeed.data.FeedRepository
 import kotlinx.coroutines.launch
+import java.util.Locale
 import kotlin.time.ExperimentalTime
 import kotlin.time.Instant
 
@@ -87,10 +88,15 @@ class FeedsViewModel(application: Application) : AndroidViewModel(application) {
     // 搜索结果限制数量，默认500，范围1-500
     var searchLimit: Int by mutableIntStateOf(500)
 
+    // 缓存大小状态
+    var cacheSize: String by mutableStateOf("0.00 MB")
+        private set
+
     init {
         loadReadFeedIds()
         loadSearchHistory() // 加载搜索历史
         loadCachedFeeds()
+        updateCacheSize() // 初始化时更新缓存大小
         getFeeds()
     }
 
@@ -268,6 +274,43 @@ class FeedsViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     /**
+     * 更新缓存大小显示
+     */
+    fun updateCacheSize() {
+        val sizeInBytes = feedRepository.getCacheSize()
+        cacheSize = formatCacheSize(sizeInBytes)
+        Log.d("FeedsViewModel", "缓存大小已更新: $cacheSize")
+    }
+
+    /**
+     * 清理缓存
+     */
+    fun clearCache() {
+        viewModelScope.launch {
+            feedRepository.clearCache()
+            updateCacheSize()
+            // 清理缓存后，可能需要重新加载数据或重置状态
+            allFeeds = emptyList()
+            readFeedIds.clear()
+            getFeeds(forceRefresh = true)
+            Log.d("FeedsViewModel", "缓存已清理，并重新加载数据")
+        }
+    }
+
+    /**
+     * 格式化缓存大小
+     */
+    private fun formatCacheSize(bytes: Long): String {
+        val kb = bytes / 1024.0
+        val mb = kb / 1024.0
+        return when {
+            mb >= 1 -> String.format(Locale.US, "%.2f MB", mb)
+            kb >= 1 -> String.format(Locale.US, "%.2f KB", kb)
+            else -> String.format(Locale.US, "%d B", bytes)
+        }
+    }
+
+    /**
      * 加载搜索历史
      */
     private fun loadSearchHistory() {
@@ -392,7 +435,7 @@ class FeedsViewModel(application: Application) : AndroidViewModel(application) {
             // kotlinx-datetime 的 Instant.parse() 可以自动处理各种 ISO 8601 格式
             // 包括纳秒精度和时区信息，如: 2025-08-11T08:14:51.583598089+08:00
             Instant.parse(timeString).toEpochMilliseconds()
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             Log.d("FeedsViewModel", "kotlinx-datetime 解析失败: $timeString, 尝试备用方案")
             
             // 备用方案1：尝试使用 Android Time 类
@@ -403,7 +446,7 @@ class FeedsViewModel(application: Application) : AndroidViewModel(application) {
                     Log.d("FeedsViewModel", "时间解析成功: $timeString -> $millis (使用 Time.parse3339)")
                     return millis
                 }
-            } catch (e2: Exception) {
+            } catch (_: Exception) {
                 Log.d("FeedsViewModel", "Time.parse3339 也解析失败: $timeString")
             }
             
@@ -417,7 +460,7 @@ class FeedsViewModel(application: Application) : AndroidViewModel(application) {
                 }
                 Log.d("FeedsViewModel", "时间解析使用数字提取: $timeString -> 清理后: $cleanTime -> 结果: $result")
                 result
-            } catch (e3: Exception) {
+            } catch (_: Exception) {
                 val hashResult = timeString.hashCode().toLong()
                 Log.w("FeedsViewModel", "时间解析最终使用散列值: $timeString -> $hashResult")
                 hashResult

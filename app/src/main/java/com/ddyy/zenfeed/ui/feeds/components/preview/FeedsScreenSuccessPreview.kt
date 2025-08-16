@@ -71,7 +71,9 @@ fun FeedsScreenSuccessPreview() {
             searchThreshold = 0.55f,
             onSearchThresholdChanged = {},
             searchLimit = 500,
-            onSearchLimitChanged = {}
+            onSearchLimitChanged = {},
+            cacheSize = "1.23 MB",
+            onClearCacheClick = {}
         )
     }
 }
