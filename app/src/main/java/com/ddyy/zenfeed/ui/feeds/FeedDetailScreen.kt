@@ -1,5 +1,6 @@
 package com.ddyy.zenfeed.ui.feeds
 
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -24,9 +25,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -36,6 +39,7 @@ import com.ddyy.zenfeed.extension.orDefaultTitle
 import com.ddyy.zenfeed.ui.feeds.components.detail.FeedDetailPage
 import com.ddyy.zenfeed.ui.feeds.components.detail.TableFullScreen
 import com.ddyy.zenfeed.ui.player.PlayerViewModel
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
@@ -91,6 +95,9 @@ fun FeedDetailScreen(
     var currentTableHtml by remember { mutableStateOf("") }
     var currentTableTitle by remember { mutableStateOf("") }
     
+    // 滚动触发器
+    var scrollToTopTrigger by remember { mutableStateOf(0) }
+    
     // HorizontalPager状态
     val pagerState = rememberPagerState(
         initialPage = initialFeedIndex.coerceIn(0, allFeeds.size - 1),
@@ -106,6 +113,8 @@ fun FeedDetailScreen(
             onFeedChanged(allFeeds[pagerState.currentPage])
         }
     }
+    
+    val coroutineScope = rememberCoroutineScope()
 
     DisposableEffect(Unit) {
         playerViewModel.bindService(context)
@@ -117,6 +126,16 @@ fun FeedDetailScreen(
     Scaffold(
         topBar = {
             TopAppBar(
+                modifier = Modifier.pointerInput(Unit) {
+                    detectTapGestures(
+                        onTap = {
+                            coroutineScope.launch {
+                                pagerState.currentPage
+                                scrollToTopTrigger++
+                            }
+                        }
+                    )
+                },
                 title = {
                     Column {
                         // 根据滚动进度在来源和标题之间过渡
@@ -207,7 +226,8 @@ fun FeedDetailScreen(
                         currentTableHtml = tableHtml
                         currentTableTitle = title
                         showTableFullScreen = true
-                    }
+                    },
+                    scrollToTopTrigger = scrollToTopTrigger,
                 )
             }
         }

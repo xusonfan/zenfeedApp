@@ -60,10 +60,18 @@ fun FeedDetailPage(
     isPlaying: Boolean,
     onPlayClick: () -> Unit,
     onScrollProgressChanged: (Float) -> Unit = {},
-    onTableClick: (String, String) -> Unit = { _, _ -> }
+    onTableClick: (String, String) -> Unit = { _, _ -> },
+    scrollToTopTrigger: Int = 0,
 ) {
     // 滚动状态
     val listState = rememberLazyListState()
+
+    // 响应滚动触发器
+    LaunchedEffect(scrollToTopTrigger) {
+        if (scrollToTopTrigger > 0) {
+            listState.animateScrollToItem(0)
+        }
+    }
 
     // 计算滚动进度（用于顶栏过渡效果）
     val scrollProgress by remember {
