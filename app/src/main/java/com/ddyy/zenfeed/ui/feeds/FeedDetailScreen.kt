@@ -10,7 +10,10 @@ import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.OpenInBrowser
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -23,6 +26,8 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.livedata.observeAsState
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -86,9 +91,10 @@ fun FeedDetailScreen(
     val isPlaying by playerViewModel.isPlaying.observeAsState(false)
     val playlistInfo by playerViewModel.playlistInfo.observeAsState()
     var showPlaylistDialog by remember { mutableStateOf(false) }
+    var menuExpanded by remember { mutableStateOf(false) }
     
     // 用于接收滚动进度的状态
-    var scrollProgress by remember { mutableStateOf(0f) }
+    var scrollProgress by remember { mutableFloatStateOf(0f) }
     
     // 表格全屏显示状态
     var showTableFullScreen by remember { mutableStateOf(false) }
@@ -96,7 +102,7 @@ fun FeedDetailScreen(
     var currentTableTitle by remember { mutableStateOf("") }
     
     // 滚动触发器
-    var scrollToTopTrigger by remember { mutableStateOf(0) }
+    var scrollToTopTrigger by remember { mutableIntStateOf(0) }
     
     // HorizontalPager状态
     val pagerState = rememberPagerState(
@@ -171,15 +177,31 @@ fun FeedDetailScreen(
                     }
                 },
                 actions = {
-                    IconButton(
-                        onClick = {
-                            onOpenWebView(currentFeed.labels.link ?: "", currentFeed.labels.title.orDefaultTitle())
+                    Box {
+                        IconButton(onClick = { menuExpanded = true }) {
+                            Icon(
+                                imageVector = Icons.Default.MoreVert,
+                                contentDescription = "更多选项"
+                            )
                         }
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.OpenInBrowser,
-                            contentDescription = "打开原网页"
-                        )
+                        DropdownMenu(
+                            expanded = menuExpanded,
+                            onDismissRequest = { menuExpanded = false }
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text("打开原网页") },
+                                onClick = {
+                                    menuExpanded = false
+                                    onOpenWebView(currentFeed.labels.link ?: "", currentFeed.labels.title.orDefaultTitle())
+                                },
+                                leadingIcon = {
+                                    Icon(
+                                        imageVector = Icons.Default.OpenInBrowser,
+                                        contentDescription = "打开原网页"
+                                    )
+                                }
+                            )
+                        }
                     }
                 }
             )
