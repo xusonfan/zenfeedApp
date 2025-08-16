@@ -147,11 +147,11 @@ fun FeedDetailPage(
                                 shape = RoundedCornerShape(8.dp)
                             )
                             .clickable { onPlayClick() }
-                            .padding(horizontal = 10.dp, vertical = 4.dp)
+                            .padding(horizontal = 6.dp, vertical = 4.dp)
                     ) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            horizontalArrangement = Arrangement.spacedBy(3.dp)
                         ) {
                             Icon(
                                 imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
