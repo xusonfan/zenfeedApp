@@ -99,8 +99,6 @@ fun FeedDetailPage(
         state = listState,
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(
-            start = 16.dp,
-            end = 16.dp,
             bottom = 16.dp
         )
     ) {
@@ -109,14 +107,14 @@ fun FeedDetailPage(
             Text(
                 text = feed.labels.title.orDefaultTitle(),
                 style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
-                modifier = Modifier.padding(top = 16.dp)
+                modifier = Modifier.padding(top = 16.dp, start = 16.dp, end = 16.dp)
             )
         }
 
         // Tags 展示区域和播放按钮在同一行
         item {
             Column(
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)
             ) {
                 // 添加标题和tags之间的间距
                 Spacer(modifier = Modifier.height(12.dp))
@@ -178,7 +176,8 @@ fun FeedDetailPage(
             Text(
                 text = "${feed.labels.source.orDefaultSource()} • 发布于: ${feed.formattedTime}",
                 style = MaterialTheme.typography.labelMedium,
-                color = Color.Gray
+                color = Color.Gray,
+                modifier = Modifier.padding(horizontal = 16.dp)
             )
         }
 
@@ -203,6 +202,7 @@ fun FeedDetailPage(
                         Card(
                             modifier = Modifier
                                 .fillMaxWidth()
+                                .padding(horizontal = 16.dp)
                                 .clickable { onShowPlaylistDialog(true) },
                             colors = CardDefaults.cardColors(
                                 containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)

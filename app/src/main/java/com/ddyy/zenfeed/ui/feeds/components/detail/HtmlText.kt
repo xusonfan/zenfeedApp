@@ -72,7 +72,7 @@ private fun addTableZoomButtons(html: String, isDarkTheme: Boolean, onTableClick
         val fullTable = matchResult.value
         
         """
-        <div style="position: relative; margin: 16px 0;">
+        <div style="position: relative; margin: 0;">
             <button 
                 onclick="
                     var tableHtml = this.parentElement.querySelector('table').outerHTML;

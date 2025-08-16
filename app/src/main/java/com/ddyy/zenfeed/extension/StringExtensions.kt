@@ -84,7 +84,7 @@ fun String.toThemedHtml(isDarkTheme: Boolean): String {
                     font-family: sans-serif;
                     line-height: 1.6;
                     margin: 0;
-                    padding: 12px;
+                    padding: 0 16px;
                 }
                 
                 /* 链接样式 */
@@ -246,6 +246,8 @@ fun String.toThemedHtml(isDarkTheme: Boolean): String {
                     color: #000000;
                     font-family: sans-serif;
                     line-height: 1.6;
+                    margin: 0;
+                    padding: 0 16px;
                 }
                 a {
                     color: #6650a4;
