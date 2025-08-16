@@ -21,6 +21,7 @@ import androidx.compose.ui.unit.dp
 import com.ddyy.zenfeed.data.Feed
 import com.ddyy.zenfeed.extension.generateTagColors
 import com.ddyy.zenfeed.extension.getTagFontSize
+import com.ddyy.zenfeed.extension.limitTagLength
 import com.ddyy.zenfeed.extension.splitTags
 import com.ddyy.zenfeed.extension.withReadTagAlpha
 
@@ -81,7 +82,7 @@ fun FeedTags(
                         )
                 ) {
                     Text(
-                        text = tag,
+                        text = tag.limitTagLength(),
                         style = MaterialTheme.typography.labelSmall.copy(
                             fontSize = getTagFontSize(isDetail = isDetail),
                             fontWeight = androidx.compose.ui.text.font.FontWeight.Medium

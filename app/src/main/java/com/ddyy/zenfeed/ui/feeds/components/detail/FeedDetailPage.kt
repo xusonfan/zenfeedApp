@@ -6,8 +6,11 @@ import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -19,8 +22,11 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.PlaylistPlay
+import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
@@ -51,6 +57,8 @@ fun FeedDetailPage(
     playlistInfo: PlaylistInfo?,
     showPlaylistDialog: Boolean,
     onShowPlaylistDialog: (Boolean) -> Unit,
+    isPlaying: Boolean,
+    onPlayClick: () -> Unit,
     onScrollProgressChanged: (Float) -> Unit = {},
     onTableClick: (String, String) -> Unit = { _, _ -> }
 ) {
@@ -97,15 +105,63 @@ fun FeedDetailPage(
             )
         }
 
-        // Tags 展示区域 - 使用抽取的组件
+        // Tags 展示区域和播放按钮在同一行
         item {
-            FeedTags(
-                feed = feed,
-                maxTags = 5, // 详情页可以显示更多标签
-                isDetail = true,
-                isRead = feed.isRead,
+            Column(
                 modifier = Modifier.fillMaxWidth()
-            )
+            ) {
+                // 添加标题和tags之间的间距
+                Spacer(modifier = Modifier.height(12.dp))
+                
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    // Tags 区域
+                    FeedTags(
+                        feed = feed,
+                        maxTags = 4, // 减少一个标签数量为播放按钮留出空间
+                        isDetail = true,
+                        isRead = feed.isRead,
+                        modifier = Modifier.weight(1f)
+                    )
+                    
+                    // 播放按钮 - 作为标签样式
+                    Box(
+                        modifier = Modifier
+                            .background(
+                                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f),
+                                shape = RoundedCornerShape(8.dp)
+                            )
+                            .border(
+                                width = 0.5.dp,
+                                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f),
+                                shape = RoundedCornerShape(8.dp)
+                            )
+                            .clickable { onPlayClick() }
+                            .padding(horizontal = 10.dp, vertical = 4.dp)
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Icon(
+                                imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
+                                contentDescription = if (isPlaying) "暂停" else "播放",
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(14.dp)
+                            )
+                            Text(
+                                text = if (isPlaying) "暂停" else "播放",
+                                style = MaterialTheme.typography.labelSmall.copy(
+                                    fontWeight = FontWeight.Medium
+                                ),
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                    }
+                }
+            }
         }
 
         // 来源和发布时间
@@ -121,7 +177,7 @@ fun FeedDetailPage(
         // 播放列表信息 - 使用动画避免闪烁
         item {
             AnimatedVisibility(
-                visible = playlistInfo != null && (playlistInfo.totalCount ?: 0) >= 1,
+                visible = playlistInfo != null && (playlistInfo.totalCount ?: 0) >= 1 && isPlaying,
                 enter = fadeIn(animationSpec = tween(300)) + expandVertically(
                     animationSpec = tween(
                         300

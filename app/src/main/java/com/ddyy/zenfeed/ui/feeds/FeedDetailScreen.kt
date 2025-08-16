@@ -1,6 +1,5 @@
 package com.ddyy.zenfeed.ui.feeds
 
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -11,10 +10,7 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.OpenInBrowser
-import androidx.compose.material.icons.filled.Pause
-import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -33,7 +29,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.ddyy.zenfeed.data.Feed
 import com.ddyy.zenfeed.extension.orDefaultSource
@@ -120,42 +115,6 @@ fun FeedDetailScreen(
     }
 
     Scaffold(
-        floatingActionButton = {
-            // 播放控制按钮组
-            Column(
-                horizontalAlignment = Alignment.End,
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                // 主播放按钮
-                FloatingActionButton(onClick = {
-                    playerViewModel.playerService?.let { it ->
-                        if (isPlaying) {
-                            it.pause()
-                        } else {
-                            if (it.isSameTrack(currentFeed.labels.podcastUrl ?: "")) {
-                                it.resume()
-                            } else {
-                                // 优先使用播放列表功能，如果没有提供则使用单曲播放
-                                if (onPlayPodcastList != null) {
-                                    // 使用全部feeds作为播放列表，从当前feed开始播放
-                                    val currentIndex = allFeeds.indexOfFirst {
-                                        it.labels.podcastUrl == currentFeed.labels.podcastUrl && !currentFeed.labels.podcastUrl.isNullOrBlank()
-                                    }.takeIf { it >= 0 } ?: pagerState.currentPage
-                                    onPlayPodcastList(allFeeds, currentIndex)
-                                } else {
-                                    it.play(currentFeed)
-                                }
-                            }
-                        }
-                    }
-                }) {
-                    Icon(
-                        imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
-                        contentDescription = if (isPlaying) "暂停" else "播放"
-                    )
-                }
-            }
-        },
         topBar = {
             TopAppBar(
                 title = {
@@ -218,6 +177,29 @@ fun FeedDetailScreen(
                     playlistInfo = playlistInfo,
                     showPlaylistDialog = showPlaylistDialog,
                     onShowPlaylistDialog = { showPlaylistDialog = it },
+                    isPlaying = isPlaying,
+                    onPlayClick = {
+                        playerViewModel.playerService?.let { service ->
+                            if (isPlaying) {
+                                service.pause()
+                            } else {
+                                if (service.isSameTrack(allFeeds[page].labels.podcastUrl ?: "")) {
+                                    service.resume()
+                                } else {
+                                    // 优先使用播放列表功能，如果没有提供则使用单曲播放
+                                    if (onPlayPodcastList != null) {
+                                        // 使用全部feeds作为播放列表，从当前feed开始播放
+                                        val currentIndex = allFeeds.indexOfFirst {
+                                            it.labels.podcastUrl == allFeeds[page].labels.podcastUrl && !allFeeds[page].labels.podcastUrl.isNullOrBlank()
+                                        }.takeIf { it >= 0 } ?: page
+                                        onPlayPodcastList(allFeeds, currentIndex)
+                                    } else {
+                                        service.play(allFeeds[page])
+                                    }
+                                }
+                            }
+                        }
+                    },
                     onScrollProgressChanged = { progress ->
                         scrollProgress = progress
                     },

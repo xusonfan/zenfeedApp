@@ -44,6 +44,18 @@ fun String.splitTags(maxCount: Int = 3): List<String> {
 }
 
 /**
+ * 限制标签长度，超过指定长度则截断并添加省略号
+ * @param maxLength 最大长度，默认为6个字符
+ */
+fun String.limitTagLength(maxLength: Int = 6): String {
+    return if (this.length <= maxLength) {
+        this
+    } else {
+        this.take(maxLength) + "..."
+    }
+}
+
+/**
  * 获取安全的标题，如果为空则返回默认值
  */
 fun String?.orDefaultTitle(): String {
