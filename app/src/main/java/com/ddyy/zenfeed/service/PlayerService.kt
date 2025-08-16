@@ -312,6 +312,7 @@ class PlayerService : Service(), AudioManager.OnAudioFocusChangeListener {
                 .putLong(MediaMetadataCompat.METADATA_KEY_DURATION, duration)
                 .build()
             mediaSession?.setMetadata(metadata)
+            updateNotification() // 更新通知以显示新标题
             
             // 开始播放
             mediaPlayer?.start()
@@ -353,6 +354,7 @@ class PlayerService : Service(), AudioManager.OnAudioFocusChangeListener {
                                     .putLong(MediaMetadataCompat.METADATA_KEY_DURATION, duration)
                                     .build()
                                 mediaSession?.setMetadata(metadata)
+                                updateNotification() // 更新通知以显示新标题
 
                                 start()
                                 Log.d("PlayerService", "开始播放: $url")
