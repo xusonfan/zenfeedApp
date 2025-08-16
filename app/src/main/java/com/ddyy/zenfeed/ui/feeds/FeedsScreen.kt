@@ -1051,9 +1051,8 @@ fun FeedsScreenContent(
                                         columns = StaggeredGridCells.Fixed(1), // 使用单列布局
                                         state = listState,
                                         modifier = Modifier.fillMaxSize(),
-                                        contentPadding = PaddingValues(12.dp),
-                                        verticalItemSpacing = 12.dp,
-                                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                        contentPadding = PaddingValues(bottom = 12.dp),
+                                        verticalItemSpacing = 0.dp
                                     ) {
                                         items(
                                             items = feedsForCategory,
