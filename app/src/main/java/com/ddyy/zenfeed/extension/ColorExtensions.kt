@@ -17,34 +17,34 @@ fun String.generateTagColors(): Triple<Color, Color, Color> {
     val colorIndex = this.hashCode().let { if (it < 0) -it else it } % 6
     return when (colorIndex) {
         0 -> Triple(
-            MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f),
+            MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f),
             MaterialTheme.colorScheme.primary.copy(alpha = 0.3f),
-            MaterialTheme.colorScheme.primary
+            MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
         )
         1 -> Triple(
-            MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.3f),
+            MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.4f),
             MaterialTheme.colorScheme.secondary.copy(alpha = 0.3f),
-            MaterialTheme.colorScheme.secondary
+            MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.8f)
         )
         2 -> Triple(
-            MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.3f),
+            MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.4f),
             MaterialTheme.colorScheme.tertiary.copy(alpha = 0.3f),
-            MaterialTheme.colorScheme.tertiary
+            MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.8f)
         )
         3 -> Triple(
-            MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.3f),
+            MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.4f),
             MaterialTheme.colorScheme.error.copy(alpha = 0.3f),
-            MaterialTheme.colorScheme.error
+            MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.8f)
         )
         4 -> Triple(
-            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
+            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
             MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f),
-            MaterialTheme.colorScheme.onSurfaceVariant
+            MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
         )
         else -> Triple(
-            MaterialTheme.colorScheme.inversePrimary.copy(alpha = 0.2f),
-            MaterialTheme.colorScheme.inversePrimary.copy(alpha = 0.4f),
-            MaterialTheme.colorScheme.inversePrimary
+            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+            MaterialTheme.colorScheme.primary.copy(alpha = 0.4f),
+            MaterialTheme.colorScheme.primary.copy(alpha = 0.8f)
         )
     }
 }

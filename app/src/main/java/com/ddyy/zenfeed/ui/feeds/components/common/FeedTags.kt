@@ -15,12 +15,12 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.ddyy.zenfeed.data.Feed
 import com.ddyy.zenfeed.extension.generateTagColors
 import com.ddyy.zenfeed.extension.getTagFontSize
-import com.ddyy.zenfeed.extension.getTagTextAlpha
 import com.ddyy.zenfeed.extension.splitTags
 import com.ddyy.zenfeed.extension.withReadTagAlpha
 
@@ -75,22 +75,18 @@ fun FeedTags(
                             shape = RoundedCornerShape(cornerRadius)
                         )
                         .padding(horizontal = horizontalPadding, vertical = verticalPadding)
+                        .graphicsLayer(
+                            alpha = 0.99f,
+                            renderEffect = null
+                        )
                 ) {
                     Text(
                         text = tag,
                         style = MaterialTheme.typography.labelSmall.copy(
-                            fontSize = getTagFontSize(isDetail = isDetail)
+                            fontSize = getTagFontSize(isDetail = isDetail),
+                            fontWeight = androidx.compose.ui.text.font.FontWeight.Medium
                         ),
-                        color = if (isDetail) {
-                            textColor.copy(
-                                alpha = getTagTextAlpha(
-                                    isRead,
-                                    isDetail = true
-                                )
-                            )
-                        } else {
-                            textColor.withReadTagAlpha(isRead)
-                        },
+                        color = textColor.withReadTagAlpha(isRead),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )

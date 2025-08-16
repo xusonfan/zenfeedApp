@@ -301,5 +301,5 @@ fun Color.withReadSummaryAlpha(isRead: Boolean): Color {
  * 根据是否已读调整透明度（标签用）
  */
 fun Color.withReadTagAlpha(isRead: Boolean): Color {
-    return this.copy(alpha = if (isRead) 0.6f else 0.8f)
+    return this.copy(alpha = if (isRead) 0.85f else 1.0f)
 }

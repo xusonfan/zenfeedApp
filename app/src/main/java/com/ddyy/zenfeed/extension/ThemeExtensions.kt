@@ -93,9 +93,9 @@ fun getThemeColorByStatus(isActive: Boolean): Color {
  */
 fun getTagFontSize(isDetail: Boolean = false): TextUnit {
     return if (isDetail) {
-        11.sp
+        12.sp
     } else {
-        10.sp
+        11.sp
     }
 }
 
@@ -104,8 +104,8 @@ fun getTagFontSize(isDetail: Boolean = false): TextUnit {
  */
 fun getTagTextAlpha(isRead: Boolean, isDetail: Boolean = false): Float {
     return if (isDetail) {
-        0.9f
+        0.95f
     } else {
-        if (isRead) 0.6f else 0.8f
+        if (isRead) 0.85f else 1.0f
     }
 }
