@@ -49,6 +49,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -142,6 +143,20 @@ fun SettingsScreen(
                 onSaveProxy = settingsViewModel::saveProxySettings
             )
 
+            // AI模型配置卡片
+            AiSettingsCard(
+                aiApiUrl = uiState.aiApiUrl,
+                aiApiKey = uiState.aiApiKey,
+                aiModelName = uiState.aiModelName,
+                aiPrompt = uiState.aiPrompt,
+                isLoading = uiState.isLoading,
+                onAiApiUrlChange = settingsViewModel::updateAiApiUrl,
+                onAiApiKeyChange = settingsViewModel::updateAiApiKey,
+                onAiModelNameChange = settingsViewModel::updateAiModelName,
+                onAiPromptChange = settingsViewModel::updateAiPrompt,
+                onSaveAiSettings = settingsViewModel::saveAiSettings
+            )
+
             // 更新设置卡片
             UpdateSettingsCard(
                 checkUpdateOnStart = uiState.checkUpdateOnStart,
@@ -210,13 +225,6 @@ private fun ApiUrlSettingCard(
                     focusedBorderColor = MaterialTheme.colorScheme.primary,
                     focusedLabelColor = MaterialTheme.colorScheme.primary
                 ),
-                supportingText = {
-                    Text(
-                        text = "API服务的基础地址，需以 http:// 或 https:// 开头\n" +
-                               "注意：如果服务器不支持HTTPS，请使用 http:// 协议",
-                        style = MaterialTheme.typography.bodySmall
-                    )
-                }
             )
 
             // 后端URL输入框
@@ -232,7 +240,6 @@ private fun ApiUrlSettingCard(
                     focusedBorderColor = MaterialTheme.colorScheme.primary,
                     focusedLabelColor = MaterialTheme.colorScheme.primary
                 ),
-                supportingText = { Text("后端服务的URL地址") }
             )
             
             // 按钮行
@@ -491,7 +498,7 @@ private fun ProxySettingCard(
                         focusedBorderColor = MaterialTheme.colorScheme.primary,
                         focusedLabelColor = MaterialTheme.colorScheme.primary
                     ),
-                    visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation()
+                    visualTransformation = PasswordVisualTransformation()
                 )
             }
             
@@ -640,6 +647,230 @@ private fun UpdateSettingsCard(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun AiSettingsCard(
+    aiApiUrl: String,
+    aiApiKey: String,
+    aiModelName: String,
+    aiPrompt: String,
+    isLoading: Boolean,
+    onAiApiUrlChange: (String) -> Unit,
+    onAiApiKeyChange: (String) -> Unit,
+    onAiModelNameChange: (String) -> Unit,
+    onAiPromptChange: (String) -> Unit,
+    onSaveAiSettings: () -> Unit
+) {
+    var tempAiApiUrl by remember(aiApiUrl) { mutableStateOf(aiApiUrl) }
+    var tempAiApiKey by remember(aiApiKey) { mutableStateOf(aiApiKey) }
+    var tempAiModelName by remember(aiModelName) { mutableStateOf(aiModelName) }
+    var tempAiPrompt by remember(aiPrompt) { mutableStateOf(aiPrompt) }
+    
+    // 检查是否有变更
+    val hasChanges = tempAiApiUrl != aiApiUrl ||
+                    tempAiApiKey != aiApiKey ||
+                    tempAiModelName != aiModelName ||
+                    tempAiPrompt != aiPrompt
+    
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        ),
+        shape = RoundedCornerShape(16.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            // 卡片标题
+            Text(
+                text = "AI模型配置",
+                style = MaterialTheme.typography.titleLarge.copy(
+                    fontWeight = FontWeight.Bold
+                ),
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            
+            Text(
+                text = "配置AI模型的接入参数，包括API地址、密钥和模型名称",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            
+            // AI API URL输入框
+            OutlinedTextField(
+                value = tempAiApiUrl,
+                onValueChange = { tempAiApiUrl = it },
+                label = { Text("AI API地址") },
+                placeholder = { Text("https://api.openai.com/v1") },
+                modifier = Modifier.fillMaxWidth(),
+                enabled = !isLoading,
+                shape = RoundedCornerShape(12.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = MaterialTheme.colorScheme.primary,
+                    focusedLabelColor = MaterialTheme.colorScheme.primary
+                ),
+            )
+            
+            // AI API密钥输入框
+            OutlinedTextField(
+                value = tempAiApiKey,
+                onValueChange = { tempAiApiKey = it },
+                label = { Text("AI API密钥") },
+                placeholder = { Text("sk-...") },
+                modifier = Modifier.fillMaxWidth(),
+                enabled = !isLoading,
+                shape = RoundedCornerShape(12.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = MaterialTheme.colorScheme.primary,
+                    focusedLabelColor = MaterialTheme.colorScheme.primary
+                ),
+                visualTransformation = PasswordVisualTransformation()
+            )
+            
+            // AI模型名称输入框
+            OutlinedTextField(
+                value = tempAiModelName,
+                onValueChange = { tempAiModelName = it },
+                label = { Text("AI模型名称") },
+                placeholder = { Text("gpt-4.1-mini") },
+                modifier = Modifier.fillMaxWidth(),
+                enabled = !isLoading,
+                shape = RoundedCornerShape(12.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = MaterialTheme.colorScheme.primary,
+                    focusedLabelColor = MaterialTheme.colorScheme.primary
+                ),
+            )
+            
+            // AI提示词输入框
+            OutlinedTextField(
+                value = tempAiPrompt,
+                onValueChange = {
+                    tempAiPrompt = it
+                    onAiPromptChange(it)
+                },
+                modifier = Modifier.fillMaxWidth(),
+                label = { Text("AI提示词") },
+                placeholder = { Text("请输入AI提示词，用于指导AI处理内容...") },
+                supportingText = { Text("提示词将用于指导AI如何处理和分析内容") },
+                maxLines = 8,
+                minLines = 3
+            )
+            
+            // 保存按钮
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                // 重置按钮
+                OutlinedButton(
+                    onClick = {
+                        tempAiApiUrl = SettingsDataStore.DEFAULT_AI_API_URL
+                        tempAiApiKey = SettingsDataStore.DEFAULT_AI_API_KEY
+                        tempAiModelName = SettingsDataStore.DEFAULT_AI_MODEL_NAME
+                        tempAiPrompt = SettingsDataStore.DEFAULT_AI_PROMPT
+                    },
+                    modifier = Modifier.weight(1f),
+                    enabled = !isLoading,
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        contentColor = MaterialTheme.colorScheme.error
+                    ),
+                    border = androidx.compose.foundation.BorderStroke(
+                        1.dp,
+                        MaterialTheme.colorScheme.error
+                    )
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Restore,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("重置")
+                }
+                
+                // 保存按钮
+                FilledTonalButton(
+                    onClick = {
+                        onAiApiUrlChange(tempAiApiUrl)
+                        onAiApiKeyChange(tempAiApiKey)
+                        onAiModelNameChange(tempAiModelName)
+                        onAiPromptChange(tempAiPrompt)
+                        onSaveAiSettings()
+                    },
+                    modifier = Modifier.weight(1f),
+                    enabled = !isLoading && hasChanges &&
+                        tempAiApiUrl.trim().isNotEmpty() &&
+                        tempAiApiKey.trim().isNotEmpty() &&
+                        tempAiModelName.trim().isNotEmpty(),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    if (isLoading) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(18.dp),
+                            strokeWidth = 2.dp,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
+                    } else {
+                        Icon(
+                            imageVector = Icons.Default.Save,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("保存配置")
+                    }
+                }
+            }
+            
+            // 当前配置显示
+            if (aiApiUrl.isNotEmpty()) {
+                HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
+                
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    // API地址显示
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text(
+                            text = "当前AI API地址：",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            text = aiApiUrl,
+                            style = MaterialTheme.typography.bodyMedium.copy(
+                                fontWeight = FontWeight.Medium
+                            ),
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                    
+                    // 模型名称显示
+                    if (aiModelName.isNotEmpty()) {
+                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Text(
+                                text = "当前AI模型：",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Text(
+                                text = aiModelName,
+                                style = MaterialTheme.typography.bodyMedium.copy(
+                                    fontWeight = FontWeight.Medium
+                                ),
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
 @Preview(showBackground = true)
 @Composable
 fun UpdateSettingsCardPreview() {
@@ -650,4 +881,5 @@ fun UpdateSettingsCardPreview() {
             isLoading = false
         )
     }
+    
 }

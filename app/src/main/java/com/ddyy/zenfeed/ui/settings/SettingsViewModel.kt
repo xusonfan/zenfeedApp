@@ -25,6 +25,10 @@ data class SettingsUiState(
     val proxyPassword: String = "",
     val themeMode: String = "system",
     val checkUpdateOnStart: Boolean = true,
+    val aiApiUrl: String = "",
+    val aiApiKey: String = "",
+    val aiModelName: String = "",
+    val aiPrompt: String = "",
     val isLoading: Boolean = false,
     val message: String = ""
 )
@@ -50,6 +54,10 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     private var currentInputProxyPassword = ""
     private var currentThemeMode = "system"
     private var currentCheckUpdateOnStart = true
+    private var currentAiApiUrl = ""
+    private var currentAiApiKey = ""
+    private var currentAiModelName = ""
+    private var currentAiPrompt = ""
 
     init {
         // 初始化时加载当前设置
@@ -81,7 +89,11 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                     proxyUsername = proxyUsername,
                     proxyPassword = proxyPassword,
                     themeMode = settingsDataStore.themeMode.first(),
-                    checkUpdateOnStart = settingsDataStore.checkUpdateOnStart.first()
+                    checkUpdateOnStart = settingsDataStore.checkUpdateOnStart.first(),
+                    aiApiUrl = settingsDataStore.aiApiUrl.first(),
+                    aiApiKey = settingsDataStore.aiApiKey.first(),
+                    aiModelName = settingsDataStore.aiModelName.first(),
+                    aiPrompt = settingsDataStore.aiPrompt.first()
                 )
                 
                 if (currentInputApiUrl.isEmpty()) {
@@ -103,6 +115,18 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                 }
                 if (currentInputProxyPassword.isEmpty()) {
                     currentInputProxyPassword = proxyPassword
+                }
+                if (currentAiApiUrl.isEmpty()) {
+                    currentAiApiUrl = settingsDataStore.aiApiUrl.first()
+                }
+                if (currentAiApiKey.isEmpty()) {
+                    currentAiApiKey = settingsDataStore.aiApiKey.first()
+                }
+                if (currentAiModelName.isEmpty()) {
+                    currentAiModelName = settingsDataStore.aiModelName.first()
+                }
+                if (currentAiPrompt.isEmpty()) {
+                    currentAiPrompt = settingsDataStore.aiPrompt.first()
                 }
                 currentThemeMode = settingsDataStore.themeMode.first()
                 currentCheckUpdateOnStart = settingsDataStore.checkUpdateOnStart.first()
@@ -182,6 +206,38 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
      */
     fun updateCheckUpdateOnStart(enabled: Boolean) {
         currentCheckUpdateOnStart = enabled
+    }
+    
+    /**
+     * 更新AI API地址
+     * @param url AI API地址
+     */
+    fun updateAiApiUrl(url: String) {
+        currentAiApiUrl = url
+    }
+    
+    /**
+     * 更新AI API密钥
+     * @param apiKey AI API密钥
+     */
+    fun updateAiApiKey(apiKey: String) {
+        currentAiApiKey = apiKey
+    }
+    
+    /**
+     * 更新AI模型名称
+     * @param modelName AI模型名称
+     */
+    fun updateAiModelName(modelName: String) {
+        currentAiModelName = modelName
+    }
+    
+    /**
+     * 更新AI提示词
+     * @param prompt AI提示词
+     */
+    fun updateAiPrompt(prompt: String) {
+        currentAiPrompt = prompt
     }
 
     /**
@@ -401,6 +457,60 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             }
         }
     }
+    
+    /**
+     * 保存AI模型配置
+     */
+    fun saveAiSettings() {
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isLoading = true)
+            
+            try {
+                val trimmedApiUrl = currentAiApiUrl.trim()
+                
+                // 验证AI API URL格式
+                if (trimmedApiUrl.isEmpty()) {
+                    showMessage("请输入AI API地址")
+                    return@launch
+                }
+                
+                if (!settingsDataStore.isValidUrl(trimmedApiUrl)) {
+                    showMessage("请输入有效的AI API地址（需以 http:// 或 https:// 开头）")
+                    return@launch
+                }
+                
+                // 验证API密钥
+                if (currentAiApiKey.trim().isEmpty()) {
+                    showMessage("请输入AI API密钥")
+                    return@launch
+                }
+                
+                // 验证模型名称
+                if (currentAiModelName.trim().isEmpty()) {
+                    showMessage("请输入AI模型名称")
+                    return@launch
+                }
+                
+                // 保存AI模型配置
+                val formattedApiUrl = settingsDataStore.formatUrl(trimmedApiUrl)
+                settingsDataStore.saveAiSettings(
+                    apiUrl = formattedApiUrl,
+                    apiKey = currentAiApiKey.trim(),
+                    modelName = currentAiModelName.trim()
+                )
+                
+                // 保存AI提示词
+                settingsDataStore.saveAiPrompt(currentAiPrompt.trim())
+                
+                showMessage("AI模型配置已保存")
+                
+            } catch (e: Exception) {
+                showMessage("保存失败：${e.message}")
+            } finally {
+                _uiState.value = _uiState.value.copy(isLoading = false)
+            }
+        }
+    }
 
     /**
      * 重置所有设置到默认值
@@ -421,6 +531,10 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                 currentInputProxyPassword = SettingsDataStore.DEFAULT_PROXY_PASSWORD
                 currentThemeMode = SettingsDataStore.DEFAULT_THEME_MODE
                 currentCheckUpdateOnStart = SettingsDataStore.DEFAULT_CHECK_UPDATE_ON_START
+                currentAiApiUrl = SettingsDataStore.DEFAULT_AI_API_URL
+                currentAiApiKey = SettingsDataStore.DEFAULT_AI_API_KEY
+                currentAiModelName = SettingsDataStore.DEFAULT_AI_MODEL_NAME
+                currentAiPrompt = SettingsDataStore.DEFAULT_AI_PROMPT
 
                 // 刷新API客户端以应用重置的设置
                 ApiClient.refreshApiService(getApplication())
@@ -433,6 +547,11 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                 _uiState.value = _uiState.value.copy(isLoading = false)
             }
         }
+        
+        /**
+         * 获取当前输入的AI提示词（用于UI显示）
+         */
+        fun getCurrentInputAiPrompt(): String = currentAiPrompt
     }
     
     /**
@@ -459,4 +578,19 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
      * 获取当前输入的后端URL（用于UI显示）
      */
     fun getCurrentInputBackendUrl(): String = currentInputBackendUrl
+    
+    /**
+     * 获取当前输入的AI API URL（用于UI显示）
+     */
+    fun getCurrentInputAiApiUrl(): String = currentAiApiUrl
+    
+    /**
+     * 获取当前输入的AI API密钥（用于UI显示）
+     */
+    fun getCurrentInputAiApiKey(): String = currentAiApiKey
+    
+    /**
+     * 获取当前输入的AI模型名称（用于UI显示）
+     */
+    fun getCurrentInputAiModelName(): String = currentAiModelName
 }

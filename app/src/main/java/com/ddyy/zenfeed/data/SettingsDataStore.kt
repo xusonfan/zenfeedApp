@@ -32,6 +32,12 @@ class SettingsDataStore(private val context: Context) {
         private val PROXY_PASSWORD_KEY = stringPreferencesKey("proxy_password")
         private val THEME_MODE_KEY = stringPreferencesKey("theme_mode")
         private val CHECK_UPDATE_ON_START_KEY = booleanPreferencesKey("check_update_on_start")
+        
+        // AI模型配置相关的键
+        private val AI_API_URL_KEY = stringPreferencesKey("ai_api_url")
+        private val AI_API_KEY_KEY = stringPreferencesKey("ai_api_key")
+        private val AI_MODEL_NAME_KEY = stringPreferencesKey("ai_model_name")
+        private val AI_PROMPT_KEY = stringPreferencesKey("ai_prompt")
 
         // 默认的API地址
         const val DEFAULT_API_BASE_URL = "https://zenfeed.xyz/"
@@ -48,6 +54,19 @@ class SettingsDataStore(private val context: Context) {
         // 默认的主题设置
         const val DEFAULT_THEME_MODE = "system" // 可以是 "light", "dark", "system"
         const val DEFAULT_CHECK_UPDATE_ON_START = true
+        
+        // 默认的AI模型配置
+        const val DEFAULT_AI_API_URL = "https://api.openai.com/v1"
+        const val DEFAULT_AI_API_KEY = ""
+        const val DEFAULT_AI_MODEL_NAME = "gpt-4.1-mini"
+        const val DEFAULT_AI_PROMPT = """请总结以下网页内容的主要观点和关键信息。要求：
+1. 提取文章的核心观点和主要论点
+2. 总结重要的数据和事实
+3. 保持客观中立的立场
+4. 用简洁清晰的语言表达
+5. 字数控制在300字以内
+
+请开始总结："""
     }
     
     /**
@@ -131,6 +150,38 @@ class SettingsDataStore(private val context: Context) {
         .map { preferences ->
             preferences[CHECK_UPDATE_ON_START_KEY] ?: DEFAULT_CHECK_UPDATE_ON_START
         }
+    
+    /**
+     * 获取AI API地址的Flow
+     */
+    val aiApiUrl: Flow<String> = context.settingsDataStore.data
+        .map { preferences ->
+            preferences[AI_API_URL_KEY] ?: DEFAULT_AI_API_URL
+        }
+    
+    /**
+     * 获取AI API密钥的Flow
+     */
+    val aiApiKey: Flow<String> = context.settingsDataStore.data
+        .map { preferences ->
+            preferences[AI_API_KEY_KEY] ?: DEFAULT_AI_API_KEY
+        }
+    
+    /**
+     * 获取AI模型名称的Flow
+     */
+    val aiModelName: Flow<String> = context.settingsDataStore.data
+        .map { preferences ->
+            preferences[AI_MODEL_NAME_KEY] ?: DEFAULT_AI_MODEL_NAME
+        }
+    
+    /**
+     * 获取AI提示词的Flow
+     */
+    val aiPrompt: Flow<String> = context.settingsDataStore.data
+        .map { preferences ->
+            preferences[AI_PROMPT_KEY] ?: DEFAULT_AI_PROMPT
+        }
 
     /**
      * 保存API基础地址
@@ -194,6 +245,60 @@ class SettingsDataStore(private val context: Context) {
     }
     
     /**
+     * 保存AI API地址
+     * @param url AI API地址
+     */
+    suspend fun saveAiApiUrl(url: String) {
+        context.settingsDataStore.edit { preferences ->
+            preferences[AI_API_URL_KEY] = url
+        }
+    }
+    
+    /**
+     * 保存AI API密钥
+     * @param apiKey AI API密钥
+     */
+    suspend fun saveAiApiKey(apiKey: String) {
+        context.settingsDataStore.edit { preferences ->
+            preferences[AI_API_KEY_KEY] = apiKey
+        }
+    }
+    
+    /**
+     * 保存AI模型名称
+     * @param modelName AI模型名称
+     */
+    suspend fun saveAiModelName(modelName: String) {
+        context.settingsDataStore.edit { preferences ->
+            preferences[AI_MODEL_NAME_KEY] = modelName
+        }
+    }
+    
+    /**
+     * 保存所有AI模型配置
+     * @param apiUrl AI API地址
+     * @param apiKey AI API密钥
+     * @param modelName AI模型名称
+     */
+    suspend fun saveAiSettings(apiUrl: String, apiKey: String, modelName: String) {
+        context.settingsDataStore.edit { preferences ->
+            preferences[AI_API_URL_KEY] = apiUrl
+            preferences[AI_API_KEY_KEY] = apiKey
+            preferences[AI_MODEL_NAME_KEY] = modelName
+        }
+    }
+    
+    /**
+     * 保存AI提示词
+     * @param prompt AI提示词
+     */
+    suspend fun saveAiPrompt(prompt: String) {
+        context.settingsDataStore.edit { preferences ->
+            preferences[AI_PROMPT_KEY] = prompt
+        }
+    }
+    
+    /**
      * 获取当前保存的API基础地址（同步方式，用于初始化）
      * @return 当前保存的API基础地址，如果没有则返回默认地址
      */
@@ -233,6 +338,10 @@ class SettingsDataStore(private val context: Context) {
             preferences[PROXY_PASSWORD_KEY] = DEFAULT_PROXY_PASSWORD
             preferences[THEME_MODE_KEY] = DEFAULT_THEME_MODE
             preferences[CHECK_UPDATE_ON_START_KEY] = DEFAULT_CHECK_UPDATE_ON_START
+            preferences[AI_API_URL_KEY] = DEFAULT_AI_API_URL
+            preferences[AI_API_KEY_KEY] = DEFAULT_AI_API_KEY
+            preferences[AI_MODEL_NAME_KEY] = DEFAULT_AI_MODEL_NAME
+            preferences[AI_PROMPT_KEY] = DEFAULT_AI_PROMPT
         }
     }
     
