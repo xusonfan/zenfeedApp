@@ -6,6 +6,7 @@ import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
 import android.content.Intent
+import android.graphics.Bitmap
 import android.media.AudioAttributes
 import android.media.AudioFocusRequest
 import android.media.AudioManager
@@ -20,7 +21,9 @@ import android.support.v4.media.session.MediaSessionCompat
 import android.support.v4.media.session.PlaybackStateCompat
 import android.util.Log
 import androidx.core.app.NotificationCompat
+import androidx.core.graphics.drawable.IconCompat
 import androidx.media.session.MediaButtonReceiver
+import com.ddyy.zenfeed.data.FaviconManager
 import com.ddyy.zenfeed.data.Feed
 import com.ddyy.zenfeed.data.PlaylistInfo
 import com.ddyy.zenfeed.data.network.ApiClient
@@ -37,9 +40,11 @@ class PlayerService : Service(), AudioManager.OnAudioFocusChangeListener {
     var mediaSession: MediaSessionCompat? = null
     private var mediaPlayer: MediaPlayer? = null
     private val binder = LocalBinder()
+    private lateinit var faviconManager: FaviconManager
     private var playlist: List<Feed> = emptyList()
     private var currentTrackIndex = -1
     private var isPrepared = false
+    private var currentTrackFavicon: Bitmap? = null
     var currentTrackUrl: String? = null
         private set
     
@@ -104,6 +109,7 @@ class PlayerService : Service(), AudioManager.OnAudioFocusChangeListener {
         super.onCreate()
         Log.d("PlayerService", "PlayerService onCreate")
         createNotificationChannel()
+        faviconManager = FaviconManager(this)
         
         // 初始化AudioManager
         audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
@@ -228,7 +234,25 @@ class PlayerService : Service(), AudioManager.OnAudioFocusChangeListener {
     private fun playInternal(url: String) {
         currentTrackUrl = url
         isPrepared = false
+        currentTrackFavicon = null // 为新曲目重置图标
         stopProgressUpdate()
+
+        // 在后台获取图标
+        val track = playlist.getOrNull(currentTrackIndex)
+        if (track != null) {
+            CoroutineScope(Dispatchers.IO).launch {
+                try {
+                    val favicon = track.labels.link?.let { faviconManager.getFavicon(it) }
+                    withContext(Dispatchers.Main) {
+                        currentTrackFavicon = favicon
+                        // 获取到图标后，更新一次通知
+                        updateNotification()
+                    }
+                } catch (e: Exception) {
+                    Log.e("PlayerService", "获取favicon失败", e)
+                }
+            }
+        }
         
         /**
          * 后台播放修复：确保服务作为前台服务启动
@@ -356,6 +380,7 @@ class PlayerService : Service(), AudioManager.OnAudioFocusChangeListener {
                                 Log.e("PlayerService", "播放错误: what=$what, extra=$extra")
                                 stopProgressUpdate()
                                 updatePlaybackState(PlaybackStateCompat.STATE_ERROR)
+                                updateNotification()
                                 isPrepared = false
                                 true
                             }
@@ -412,14 +437,14 @@ class PlayerService : Service(), AudioManager.OnAudioFocusChangeListener {
             }
             
             // 下载文件
-            response.body?.let { responseBody ->
+            response.body.let { responseBody ->
                 FileOutputStream(localFile).use { output ->
                     responseBody.byteStream().use { input ->
                         input.copyTo(output)
                     }
                 }
                 Log.d("PlayerService", "媒体文件下载完成: ${localFile.absolutePath}, 大小: ${localFile.length()} 字节")
-            } ?: throw Exception("响应体为空")
+            }
             
             localFile
         }
@@ -452,8 +477,6 @@ class PlayerService : Service(), AudioManager.OnAudioFocusChangeListener {
                         currentTrackIndex = shuffledIndices[nextShuffledIndex]
                         Log.d("PlayerService", "乱序模式，播放索引: $currentTrackIndex")
                         playCurrentTrack()
-                        // 确保切换到下一曲时应用当前的播放速度
-                        applyCurrentPlaybackSpeed()
                     } else {
                         Log.d("PlayerService", "乱序播放已是最后一首，播放结束")
                         updatePlaybackState(PlaybackStateCompat.STATE_STOPPED)
@@ -464,16 +487,12 @@ class PlayerService : Service(), AudioManager.OnAudioFocusChangeListener {
                 currentTrackIndex = (currentTrackIndex + 1) % playlist.size
                 Log.d("PlayerService", "循环模式，播放索引: $currentTrackIndex")
                 playCurrentTrack()
-                // 确保切换到下一曲时应用当前的播放速度
-                applyCurrentPlaybackSpeed()
             } else {
                 // 顺序模式：播放到最后一首后停止
                 if (hasNextTrack()) {
                     currentTrackIndex++
                     Log.d("PlayerService", "顺序模式，播放下一首，索引: $currentTrackIndex")
                     playCurrentTrack()
-                    // 确保切换到下一曲时应用当前的播放速度
-                    applyCurrentPlaybackSpeed()
                 } else {
                     Log.d("PlayerService", "已是最后一首，播放结束")
                     updatePlaybackState(PlaybackStateCompat.STATE_STOPPED)
@@ -515,8 +534,6 @@ class PlayerService : Service(), AudioManager.OnAudioFocusChangeListener {
                         currentTrackIndex = shuffledIndices[prevShuffledIndex]
                         Log.d("PlayerService", "乱序模式，播放索引: $currentTrackIndex")
                         playCurrentTrack()
-                        // 确保切换到上一曲时应用当前的播放速度
-                        applyCurrentPlaybackSpeed()
                     } else {
                         Log.d("PlayerService", "乱序播放已是第一首，无法播放上一首")
                     }
@@ -526,16 +543,12 @@ class PlayerService : Service(), AudioManager.OnAudioFocusChangeListener {
                 currentTrackIndex = if (currentTrackIndex > 0) currentTrackIndex - 1 else playlist.size - 1
                 Log.d("PlayerService", "循环模式，播放索引: $currentTrackIndex")
                 playCurrentTrack()
-                // 确保切换到上一曲时应用当前的播放速度
-                applyCurrentPlaybackSpeed()
             } else {
                 // 顺序模式：播放到第一首后停止
                 if (hasPreviousTrack()) {
                     currentTrackIndex--
                     Log.d("PlayerService", "顺序模式，播放上一首，索引: $currentTrackIndex")
                     playCurrentTrack()
-                    // 确保切换到上一曲时应用当前的播放速度
-                    applyCurrentPlaybackSpeed()
                 } else {
                     Log.d("PlayerService", "已是第一首，无法播放上一首")
                 }
@@ -818,8 +831,6 @@ class PlayerService : Service(), AudioManager.OnAudioFocusChangeListener {
             if (index >= 0 && index < playlist.size) {
                 currentTrackIndex = index
                 playCurrentTrack()
-                // 确保切换到指定曲目时应用当前的播放速度
-                applyCurrentPlaybackSpeed()
                 Log.d("PlayerService", "播放指定索引曲目: $index")
             } else {
                 Log.w("PlayerService", "无效的曲目索引: $index, 播放列表大小: ${playlist.size}")
@@ -849,6 +860,7 @@ class PlayerService : Service(), AudioManager.OnAudioFocusChangeListener {
             stopProgressUpdate()
             Log.d("PlayerService", "暂停播放")
             updatePlaybackState(PlaybackStateCompat.STATE_PAUSED)
+            updateNotification()
         } catch (e: Exception) {
             Log.e("PlayerService", "暂停播放时出错", e)
         }
@@ -878,6 +890,7 @@ class PlayerService : Service(), AudioManager.OnAudioFocusChangeListener {
                     startProgressUpdate()
                     Log.d("PlayerService", "继续播放")
                     updatePlaybackState(PlaybackStateCompat.STATE_PLAYING)
+                    updateNotification()
                     playbackNeedsToResume = false // 重置恢复标志
                 } catch (e: IllegalStateException) {
                     Log.e("PlayerService", "MediaPlayer状态异常，尝试重新播放当前曲目", e)
@@ -1165,7 +1178,6 @@ class PlayerService : Service(), AudioManager.OnAudioFocusChangeListener {
             )
             .setState(state, position, playbackSpeed)
         mediaSession?.setPlaybackState(playbackStateBuilder.build())
-        updateNotification()
     }
 
     /**
@@ -1250,6 +1262,7 @@ class PlayerService : Service(), AudioManager.OnAudioFocusChangeListener {
                             mediaPlayer!!.start()
                             startProgressUpdate()
                             updatePlaybackState(PlaybackStateCompat.STATE_PLAYING)
+                            updateNotification()
                             playbackNeedsToResume = false
                             Log.d("PlayerService", "音频焦点恢复，继续播放")
                         } else {
@@ -1285,6 +1298,7 @@ class PlayerService : Service(), AudioManager.OnAudioFocusChangeListener {
                         mediaPlayer?.pause()
                         stopProgressUpdate()
                         updatePlaybackState(PlaybackStateCompat.STATE_PAUSED)
+                        updateNotification()
                         Log.d("PlayerService", "永久失去音频焦点，暂停播放，等待恢复机会")
                     } else {
                         playbackNeedsToResume = false
@@ -1303,6 +1317,7 @@ class PlayerService : Service(), AudioManager.OnAudioFocusChangeListener {
                         mediaPlayer?.pause()
                         stopProgressUpdate()
                         updatePlaybackState(PlaybackStateCompat.STATE_PAUSED)
+                        updateNotification()
                         Log.d("PlayerService", "临时失去音频焦点，暂停播放")
                     }
                 } catch (e: Exception) {
@@ -1382,7 +1397,7 @@ class PlayerService : Service(), AudioManager.OnAudioFocusChangeListener {
 
     private fun updateNotification() {
         val track = playlist.getOrNull(currentTrackIndex)
-        
+
         // 如果没有播放列表，显示待机通知
         if (track == null) {
             val defaultNotification = NotificationCompat.Builder(this, "zenfeed_player")
@@ -1395,7 +1410,7 @@ class PlayerService : Service(), AudioManager.OnAudioFocusChangeListener {
             startForeground(1, defaultNotification)
             return
         }
-        
+
         // 创建点击通知跳转到文章详情的Intent
         val contentIntent = Intent(this, com.ddyy.zenfeed.MainActivity::class.java).apply {
             action = "ACTION_OPEN_FEED_DETAIL"
@@ -1414,23 +1429,20 @@ class PlayerService : Service(), AudioManager.OnAudioFocusChangeListener {
             putExtra("FEED_IS_READ", track.isRead)
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
         }
-        
+
         val contentPendingIntent = PendingIntent.getActivity(
             this,
             0,
             contentIntent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
-        
-        val notification = NotificationCompat.Builder(this, "zenfeed_player")
+
+        val notificationBuilder = NotificationCompat.Builder(this, "zenfeed_player")
             .setContentTitle(track.labels.title ?: "未知标题")
             .setContentText(track.labels.source ?: "未知来源")
-            .setSmallIcon(android.R.drawable.ic_media_play) // 使用系统图标作为占位符
-            .setContentIntent(contentPendingIntent) // 设置点击通知的跳转Intent
-            // 【后台播放修复】设置为持续通知，防止用户滑动删除
-            // 原因：普通通知可能被用户意外删除，导致前台服务失效，播放中断
-            .setOngoing(true) // 设置为持续通知，确保播放期间通知不会被删除
-            .setAutoCancel(false) // 防止点击后自动取消通知
+            .setContentIntent(contentPendingIntent)
+            .setOngoing(true)
+            .setAutoCancel(false)
             .addAction(
                 NotificationCompat.Action(
                     android.R.drawable.ic_media_previous,
@@ -1457,7 +1469,14 @@ class PlayerService : Service(), AudioManager.OnAudioFocusChangeListener {
                     .setMediaSession(mediaSession?.sessionToken)
                     .setShowActionsInCompactView(0, 1, 2)
             )
-            .build()
-        startForeground(1, notification)
+
+        // 使用缓存的图标（如果存在），否则使用默认图标
+        if (currentTrackFavicon != null) {
+            notificationBuilder.setSmallIcon(IconCompat.createWithBitmap(currentTrackFavicon!!))
+        } else {
+            notificationBuilder.setSmallIcon(android.R.drawable.ic_media_play)
+        }
+
+        startForeground(1, notificationBuilder.build())
     }
 }
