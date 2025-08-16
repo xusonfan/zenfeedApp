@@ -23,6 +23,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -41,9 +42,83 @@ fun WebViewScreen(
     modifier: Modifier = Modifier
 ) {
     var isLoading by remember { mutableStateOf(true) }
-    var webView by remember { mutableStateOf<WebView?>(null) }
     var currentTitle by remember { mutableStateOf(title) }
     val context = LocalContext.current
+
+    val webView = remember { WebView(context) }
+
+    // Use DisposableEffect to set up and tear down the WebView
+    DisposableEffect(webView) {
+        val webViewClient = object : WebViewClient() {
+            private val proxyClient = WebViewProxyHelper.createProxyWebViewClient(context)
+
+            override fun shouldInterceptRequest(view: WebView?, request: android.webkit.WebResourceRequest?): android.webkit.WebResourceResponse? {
+                return proxyClient.shouldInterceptRequest(view, request)
+            }
+
+            override fun onPageStarted(view: WebView?, url: String?, favicon: android.graphics.Bitmap?) {
+                super.onPageStarted(view, url, favicon)
+                proxyClient.onPageStarted(view, url, favicon)
+                isLoading = true
+            }
+
+            override fun onPageFinished(view: WebView?, url: String?) {
+                super.onPageFinished(view, url)
+                proxyClient.onPageFinished(view, url)
+                isLoading = false
+            }
+
+            override fun shouldOverrideUrlLoading(view: WebView?, request: android.webkit.WebResourceRequest?): Boolean {
+                return proxyClient.shouldOverrideUrlLoading(view, request)
+            }
+        }
+
+        val webChromeClient = object : WebChromeClient() {
+            override fun onReceivedTitle(view: WebView?, title: String?) {
+                super.onReceivedTitle(view, title)
+                title?.let { currentTitle = it }
+            }
+
+            override fun onProgressChanged(view: WebView?, newProgress: Int) {
+                super.onProgressChanged(view, newProgress)
+                isLoading = newProgress < 100
+            }
+        }
+
+        webView.apply {
+            layoutParams = ViewGroup.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT
+            )
+            this.webViewClient = webViewClient
+            this.webChromeClient = webChromeClient
+            settings.apply {
+                javaScriptEnabled = true
+                domStorageEnabled = true
+                cacheMode = WebSettings.LOAD_DEFAULT
+                useWideViewPort = true
+                loadWithOverviewMode = true
+                layoutAlgorithm = WebSettings.LayoutAlgorithm.TEXT_AUTOSIZING
+                setSupportZoom(true)
+                builtInZoomControls = true
+                displayZoomControls = false
+                textZoom = 100
+                minimumFontSize = 8
+                mediaPlaybackRequiresUserGesture = false
+                allowFileAccess = false
+                allowContentAccess = false
+                mixedContentMode = WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
+                userAgentString = "Mozilla/5.0 (Linux; Android 10; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.120 Mobile Safari/537.36"
+            }
+            loadUrl(url)
+        }
+
+        onDispose {
+            // When the composable is disposed, remove the WebView from the view hierarchy and destroy it.
+            (webView.parent as? ViewGroup)?.removeView(webView)
+            webView.destroy()
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -65,7 +140,7 @@ fun WebViewScreen(
                 actions = {
                     IconButton(
                         onClick = {
-                            webView?.reload()
+                            webView.reload()
                             isLoading = true
                         }
                     ) {
@@ -81,97 +156,9 @@ fun WebViewScreen(
         Box(modifier = modifier.padding(innerPadding)) {
             AndroidView(
                 modifier = Modifier.fillMaxSize(),
-                factory = { context ->
-                    WebView(context).apply {
-                        layoutParams = ViewGroup.LayoutParams(
-                            ViewGroup.LayoutParams.MATCH_PARENT,
-                            ViewGroup.LayoutParams.MATCH_PARENT
-                        )
-                        
-                        // 基础设置
-                        settings.apply {
-                            javaScriptEnabled = true
-                            domStorageEnabled = true
-                            // databaseEnabled 已弃用，现代WebView不再使用数据库存储
-                            
-                            // 缓存设置
-                            cacheMode = WebSettings.LOAD_DEFAULT
-                            
-                            // 显示设置
-                            useWideViewPort = true
-                            loadWithOverviewMode = true
-                            layoutAlgorithm = WebSettings.LayoutAlgorithm.TEXT_AUTOSIZING
-                            
-                            // 缩放设置
-                            setSupportZoom(true)
-                            builtInZoomControls = true
-                            displayZoomControls = false
-                            
-                            // 文本设置
-                            textZoom = 100
-                            minimumFontSize = 8
-                            
-                            // 媒体设置
-                            mediaPlaybackRequiresUserGesture = false
-                            
-                            // 安全设置
-                            allowFileAccess = false
-                            allowContentAccess = false
-                            
-                            // 混合内容
-                            mixedContentMode = WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
-                            
-                            // User Agent - 使用现代浏览器标识
-                            userAgentString = "Mozilla/5.0 (Linux; Android 10; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.120 Mobile Safari/537.36"
-                        }
-                        
-                        // 使用支持代理的 WebViewClient
-                        webViewClient = object : WebViewClient() {
-                            private val proxyClient = WebViewProxyHelper.createProxyWebViewClient(context)
-                            
-                            override fun shouldInterceptRequest(view: WebView?, request: android.webkit.WebResourceRequest?): android.webkit.WebResourceResponse? {
-                                // 使用代理客户端拦截请求
-                                return proxyClient.shouldInterceptRequest(view, request)
-                            }
-                            
-                            override fun onPageStarted(view: WebView?, url: String?, favicon: android.graphics.Bitmap?) {
-                                super.onPageStarted(view, url, favicon)
-                                proxyClient.onPageStarted(view, url, favicon)
-                                isLoading = true
-                            }
-                            
-                            override fun onPageFinished(view: WebView?, url: String?) {
-                                super.onPageFinished(view, url)
-                                proxyClient.onPageFinished(view, url)
-                                isLoading = false
-                            }
-                            
-                            override fun shouldOverrideUrlLoading(view: WebView?, request: android.webkit.WebResourceRequest?): Boolean {
-                                return proxyClient.shouldOverrideUrlLoading(view, request)
-                            }
-                        }
-                        
-                        webChromeClient = object : WebChromeClient() {
-                            override fun onReceivedTitle(view: WebView?, title: String?) {
-                                super.onReceivedTitle(view, title)
-                                title?.let { currentTitle = it }
-                            }
-                            
-                            override fun onProgressChanged(view: WebView?, newProgress: Int) {
-                                super.onProgressChanged(view, newProgress)
-                                isLoading = newProgress < 100
-                            }
-                        }
-                        
-                        webView = this
-                        loadUrl(url)
-                    }
-                },
-                update = { view ->
-                    webView = view
-                }
+                factory = { webView }
             )
-            
+
             if (isLoading) {
                 Box(modifier = Modifier.fillMaxSize()) {
                     Column(
